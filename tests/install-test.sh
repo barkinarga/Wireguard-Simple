@@ -92,12 +92,14 @@ printf '%s\n' 'PASS arguments and injection rejection'
 printf '%s\n' 'PASS architecture selection and actual ELF/Windows validation'
 
 (
+  wgs_distribution debian 13 Debian
   dependency_log=$TEST_DIR/dependencies
-  apt-get() { printf '%s\n' "$*" >> "$dependency_log"; }
-  command() { if [[ ${1:-} == -v ]]; then return 0; fi; builtin command "$@"; }
+  tools_ready=1
+  apt-get() { printf '%s\n' "$*" >> "$dependency_log"; if [[ $1 == install ]]; then tools_ready=1; fi; }
+  command() { if [[ ${1:-} == -v ]]; then ((tools_ready)); return; fi; builtin command "$@"; }
   wgs_dependencies
   [[ ! -e $dependency_log ]]
-  command() { if [[ ${1:-} == -v ]]; then return 1; fi; builtin command "$@"; }
+  tools_ready=0
   WGS_CHECK=1
   wgs_dependencies >/dev/null
   [[ ! -e $dependency_log ]]
@@ -107,7 +109,7 @@ printf '%s\n' 'PASS architecture selection and actual ELF/Windows validation'
   WGS_DEPS=1
   wgs_dependencies >/dev/null
   [[ $(wc -l < "$dependency_log") -eq 2 ]]
-  grep -q -- '--no-install-recommends wireguard-tools iproute2 curl ca-certificates' "$dependency_log"
+  grep -q -- '--no-install-recommends wireguard-tools iproute2 curl kmod ca-certificates' "$dependency_log"
 )
 printf '%s\n' 'PASS dependency detection, no-deps and read-only check (mock package manager)'
 

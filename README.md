@@ -13,11 +13,19 @@
 
 # WireGuard Simple
 
-A lightweight WireGuard management console for Debian and Ubuntu, with an original interface, live monitoring, and optional history. Built independently in Go and TypeScript.
+A lightweight WireGuard management console for Debian, Ubuntu, RHEL, CentOS Stream, AlmaLinux, Rocky Linux, and Fedora, with an original interface, live monitoring, and optional history. Built independently in Go and TypeScript.
 
 The compiled interface is embedded in the Go application. Your server needs **one application, WireGuard tools, and systemd**. No Node.js, separate frontend server, or database service is required at runtime.
 
-**Early development release:** builds, automated tests, and installer checks pass in Linux CI. Real WireGuard connectivity, routing, reboot recovery, and resource use on a small Linux server still need end-to-end validation. The current application interface and installer messages are in Turkish; this README and the English installation guide describe the same release.
+**Early development release:** builds, automated tests, and installer checks run in Linux CI. Real WireGuard connectivity, routing, reboot recovery, SELinux enforcement, and resource use across target distributions still need end-to-end validation.
+
+## Languages
+
+The application starts in **English** and includes **10 embedded interface languages**: English, Turkish, German, French, Spanish, Italian, Portuguese, Russian, Arabic, and Simplified Chinese. Change language in the top bar or before sign-in. Your choice is remembered in this browser, and unsaved form fields are preserved when switching.
+
+Arabic includes a right-to-left layout. Dates, numbers, and relative times follow the selected language. Common validation messages and administrative events are translated; low-level WireGuard/OS diagnostics remain in English. Client names, keys, and configurations are never translated. No external translation service is used.
+
+Repository documentation is maintained in **English and Turkish**. [Translation maintenance](docs/localization.md).
 
 ## Preview
 
@@ -44,7 +52,7 @@ The compiled interface is embedded in the Go application. Your server needs **on
 
 ## Install with one command
 
-Run this on your **Debian/Ubuntu Linux server** with systemd and `curl` available:
+Run this on a **supported Linux server** with systemd and `curl` available:
 
 ```bash
 curl -fL --retry 3 -o wgsimple-install.run https://github.com/barkinarga/Wireguard-Simple/releases/latest/download/wgsimple-install.run && sudo bash wgsimple-install.run
@@ -65,6 +73,17 @@ sudo cat /var/lib/wgsimple/setup-token
 The installer sets up the panel and WireGuard tools. **VPN internet access also requires appropriate forwarding, NAT, and UDP firewall rules**, configured separately for your server. The installer does not change those rules, DNS, or existing VPN interfaces.
 
 Full steps, upgrades, offline file transfer, and troubleshooting: **[English installation guide](INSTALL.md)** · **[Türkçe kurulum](KURULUM.md)**.
+
+## Linux distributions
+
+| Distribution | Installer package path | Requirements |
+| --- | --- | --- |
+| Debian / Ubuntu | `apt-get`, `iproute2` | WireGuard-capable kernel and systemd |
+| RHEL / AlmaLinux / Rocky Linux | `dnf`, or `yum` fallback; `iproute` | EL8 or newer; EL8 may require a separately prepared WireGuard kernel/module |
+| CentOS Stream | `dnf`, `iproute` | Stream 9 or newer; retired CentOS Linux and Stream 8 are rejected |
+| Fedora | `dnf`, `iproute` | Mutable system with systemd; ostree/CoreOS/Silverblue-style images require a separate deployment method |
+
+The installer checks kernel support without creating interfaces or loading modules. It uses enabled repositories, preserves existing `curl` providers, and never adds EPEL/ELRepo, replaces a kernel, disables SELinux, or changes firewalld rules. When available, `restorecon` restores policy labels on installed paths. Package/kernel prerequisites and the distinction between mocked installer tests and real distro validation are described in [platform notes](docs/platforms.md).
 
 ## Lightweight by default
 
@@ -125,6 +144,7 @@ This produces Windows and Linux binaries plus `release/wgsimple-install.run`, co
 
 ```bash
 npm run check
+npm run test:i18n
 go test ./... -count=1
 go vet ./...
 ```

@@ -22,7 +22,7 @@ func LockData(dir string) (func(), error) {
 	err = windows.LockFileEx(windows.Handle(f.Fd()), windows.LOCKFILE_EXCLUSIVE_LOCK|windows.LOCKFILE_FAIL_IMMEDIATELY, 0, 1, 0, &overlapped)
 	if err != nil {
 		_ = f.Close()
-		return nil, errors.New("bu veri klasörü başka bir uygulama tarafından kullanılıyor")
+		return nil, errors.New("This data directory is in use by another application")
 	}
 	return func() { _ = windows.UnlockFileEx(windows.Handle(f.Fd()), 0, 1, 0, &overlapped); _ = f.Close() }, nil
 }

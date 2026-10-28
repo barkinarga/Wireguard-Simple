@@ -2,7 +2,7 @@
 
 [English README](README.md) · [Türkçe kurulum](KURULUM.md)
 
-These steps are for your **Debian/Ubuntu Linux server**, with systemd and a WireGuard-capable kernel, on amd64 or arm64. The installer refuses Windows and WSL. Your personal computer only needs SSH and a browser to access the panel.
+These steps are for your **Debian, Ubuntu, RHEL, CentOS Stream, AlmaLinux, Rocky Linux, or Fedora server**, with systemd and a WireGuard-capable kernel, on amd64 or arm64. The installer refuses Windows and WSL. Your personal computer only needs SSH and a browser to access the panel. See the [distribution requirements](docs/platforms.md), especially for EL8 and immutable Fedora images.
 
 ## 1. Download and install
 
@@ -12,15 +12,17 @@ Run on the server:
 curl -fL --retry 3 -o wgsimple-install.run https://github.com/barkinarga/Wireguard-Simple/releases/latest/download/wgsimple-install.run && sudo bash wgsimple-install.run
 ```
 
-If `curl` is missing, install it first:
+If `curl` is missing, install it first on Debian/Ubuntu:
 
 ```bash
 sudo apt-get update && sudo apt-get install -y curl ca-certificates
 ```
 
+On the RPM-based distributions, use `sudo dnf install -y curl ca-certificates` (or `yum` on an EL system without `dnf`). If the server already provides `curl`, including `curl-minimal`, keep that provider. You can also transfer the installer file from your computer.
+
 Alternatively, download `wgsimple-install.run` from the [latest release](https://github.com/barkinarga/Wireguard-Simple/releases/latest), copy it to the server, and run `sudo bash wgsimple-install.run` there. To install without downloading missing system packages, provide those packages yourself and use `--no-deps`.
 
-The installer chooses the architecture, verifies the embedded payload's checksum, installs missing `wireguard-tools`, `iproute2`, and `curl`, then starts `wgsimple.service`. It installs no Go compiler, Node.js, Docker, or database service. Temporary extraction files are cleaned up.
+The installer chooses the architecture, verifies the embedded payload's checksum, installs missing WireGuard tools, IP tools (`iproute2` or `iproute`), `curl`, and `kmod`, then checks kernel support and starts `wgsimple.service`. It uses your enabled repositories; if a package is unavailable, it stops with an explanation. It adds no external repository, kernel, Go compiler, Node.js, Docker, or database service. Temporary extraction files are cleaned up.
 
 Traffic history, persistent administrative logs, and Prometheus are **off on a fresh installation**. Existing settings and client keys are preserved on upgrade. If startup fails, the installer attempts to restore the previous application and service state.
 
@@ -40,13 +42,13 @@ For first-run setup, read the token on the server:
 sudo cat /var/lib/wgsimple/setup-token
 ```
 
-Enter it in the setup screen and create your administrator account. Keep the token private. Its file is removed after setup; future logins use your username and password. The current setup interface is in Turkish.
+Enter it in the setup screen and create your administrator account. Keep the token private. Its file is removed after setup; future logins use your username and password. The interface defaults to English; a language selector is available before sign-in and in the top bar, with 10 embedded languages.
 
 The default panel is only reachable through loopback and your SSH tunnel. The installer does not expose a public HTTP port.
 
 ## 3. Prepare VPN connectivity
 
-In **Ayarlar → Endpoint** (Settings → Endpoint), enter your server's public IP address or domain. Use **İstemci ekle** (Add client) to create a device and obtain its configuration or QR code.
+In **Settings → Endpoint**, enter your server's public IP address or domain. Use **Add client** to create a device and obtain its configuration or QR code.
 
 **The one-command installer sets up the management panel and tools.** Internet access through the VPN additionally requires IP forwarding, NAT, and UDP firewall rules appropriate for your server. Configure these separately. The installer does not change them, DNS, or existing VPN interfaces.
 

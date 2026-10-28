@@ -58,18 +58,18 @@ func apiError(w http.ResponseWriter, status int, msg string) {
 }
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	if strings.Split(r.Header.Get("Content-Type"), ";")[0] != "application/json" {
-		apiError(w, 415, "JSON içerik türü gerekiyor")
+		apiError(w, 415, "JSON content type required")
 		return false
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 384*1024)
 	d := json.NewDecoder(r.Body)
 	d.DisallowUnknownFields()
 	if err := d.Decode(v); err != nil {
-		apiError(w, 400, "istek biçimi veya boyutu geçersiz")
+		apiError(w, 400, "Invalid request format or size")
 		return false
 	}
 	if err := d.Decode(&struct{}{}); err != io.EOF {
-		apiError(w, 400, "tek bir JSON nesnesi gerekiyor")
+		apiError(w, 400, "A single JSON object is required")
 		return false
 	}
 	return true
@@ -111,7 +111,7 @@ func (s *HTTPServer) Handler() http.Handler {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		if !s.allowedRequest(r) {
-			apiError(w, 403, "yalnızca izin verilen panel adresinden erişilebilir")
+			apiError(w, 403, "Use the allowed panel address")
 			return
 		}
 		mux.ServeHTTP(w, r)
@@ -154,18 +154,18 @@ func (s *HTTPServer) authorized(next http.HandlerFunc) http.HandlerFunc {
 func (s *HTTPServer) session(w http.ResponseWriter, r *http.Request) {
 	user, ok := s.auth.get(r)
 	if !ok && s.mode == "demo" {
-		user = s.auth.create(w, "Demo yöneticisi")
+		user = s.auth.create(w, "Demo administrator")
 		ok = true
 	}
 	jsonResponse(w, 200, map[string]any{"authenticated": ok, "setupRequired": s.mode != "demo" && !s.store.HasAdmin(), "mode": s.mode, "user": user.User, "csrf": user.CSRF})
 }
 func (s *HTTPServer) setup(w http.ResponseWriter, r *http.Request) {
 	if s.mode == "demo" || s.store.HasAdmin() {
-		apiError(w, 409, "ilk kurulum zaten tamamlandı")
+		apiError(w, 409, "Setup already completed")
 		return
 	}
 	if !s.auth.allowed(remoteIP(r)) {
-		apiError(w, 429, "çok fazla deneme; bir dakika bekleyin")
+		apiError(w, 429, "Too many attempts; wait one minute")
 		return
 	}
 	var input struct {
@@ -177,18 +177,18 @@ func (s *HTTPServer) setup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.setupToken == "" || subtle.ConstantTimeCompare([]byte(input.Token), []byte(s.setupToken)) != 1 {
-		apiError(w, 403, "kurulum anahtarı geçersiz")
+		apiError(w, 403, "Invalid setup token")
 		return
 	}
 	if !validName(input.Username) || len(input.Username) > 40 {
-		apiError(w, 400, "kullanıcı adı geçersiz")
+		apiError(w, 400, "Invalid username")
 		return
 	}
 	select {
 	case s.auth.passwordSlot <- struct{}{}:
 		defer func() { <-s.auth.passwordSlot }()
 	default:
-		apiError(w, 429, "başka bir doğrulama sürüyor")
+		apiError(w, 429, "Another verification is in progress")
 		return
 	}
 	hash, err := hashPassword(input.Password)
@@ -197,17 +197,17 @@ func (s *HTTPServer) setup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err = s.store.CreateAdmin(input.Username, hash); err != nil {
-		apiError(w, 409, "yönetici hesabı oluşturulamadı")
+		apiError(w, 409, "Could not create administrator account")
 		return
 	}
 	_ = os.Remove(filepath.Join(s.store.dir, "setup-token"))
 	user := s.auth.create(w, input.Username)
-	s.service.Event("info", "auth.setup", "Yönetici hesabı oluşturuldu")
+	s.service.Event("info", "auth.setup", "Administrator account created")
 	jsonResponse(w, 201, map[string]string{"csrf": user.CSRF})
 }
 func (s *HTTPServer) login(w http.ResponseWriter, r *http.Request) {
 	if !s.auth.allowed(remoteIP(r)) {
-		apiError(w, 429, "çok fazla deneme; bir dakika bekleyin")
+		apiError(w, 429, "Too many attempts; wait one minute")
 		return
 	}
 	var input struct {
@@ -221,18 +221,18 @@ func (s *HTTPServer) login(w http.ResponseWriter, r *http.Request) {
 	case s.auth.passwordSlot <- struct{}{}:
 		defer func() { <-s.auth.passwordSlot }()
 	default:
-		apiError(w, 429, "başka bir doğrulama sürüyor")
+		apiError(w, 429, "Another verification is in progress")
 		return
 	}
 	name, hash, err := s.store.Admin()
 	if err != nil || !verifyPassword(hash, input.Password) || subtle.ConstantTimeCompare([]byte(name), []byte(input.Username)) != 1 {
-		s.service.Event("warning", "auth.failure", "Başarısız panel giriş denemesi")
-		apiError(w, 401, "kullanıcı adı veya parola hatalı")
+		s.service.Event("warning", "auth.failure", "Failed panel login attempt")
+		apiError(w, 401, "Incorrect username or password")
 		return
 	}
 	s.auth.logout(w, r)
 	user := s.auth.create(w, name)
-	s.service.Event("info", "auth.login", "Yönetici oturumu açıldı")
+	s.service.Event("info", "auth.login", "Administrator signed in")
 	jsonResponse(w, 200, map[string]string{"csrf": user.CSRF})
 }
 func (s *HTTPServer) logout(w http.ResponseWriter, r *http.Request) {
@@ -255,7 +255,7 @@ func (s *HTTPServer) createPeer(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 400, err.Error())
 		return
 	}
-	s.service.Event("info", "peer.create", "İstemci eklendi: "+p.Name)
+	s.service.Event("info", "peer.create", "Client added: "+p.Name)
 	s.service.Collect(r.Context())
 	jsonResponse(w, 201, p)
 }
@@ -267,14 +267,14 @@ func (s *HTTPServer) changePeer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if input.Enabled == nil {
-		apiError(w, 400, "etkinlik durumu gerekiyor")
+		apiError(w, 400, "Client access state is required")
 		return
 	}
 	if err := s.service.ChangePeer(r.Context(), r.PathValue("id"), input.Enabled, false); err != nil {
 		apiError(w, 400, err.Error())
 		return
 	}
-	s.service.Event("info", "peer.update", "İstemcinin etkinlik durumu değiştirildi")
+	s.service.Event("info", "peer.update", "Client access status changed")
 	s.service.Collect(r.Context())
 	jsonResponse(w, 200, map[string]bool{"ok": true})
 }
@@ -283,7 +283,7 @@ func (s *HTTPServer) deletePeer(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 400, err.Error())
 		return
 	}
-	s.service.Event("warning", "peer.delete", "İstemci silindi")
+	s.service.Event("warning", "peer.delete", "Client deleted")
 	s.service.Collect(r.Context())
 	jsonResponse(w, 200, map[string]bool{"ok": true})
 }
@@ -297,7 +297,7 @@ func (s *HTTPServer) findPeer(id string) (Peer, error) {
 			return p, nil
 		}
 	}
-	return Peer{}, errors.New("istemci bulunamadı")
+	return Peer{}, errors.New("Client not found")
 }
 func (s *HTTPServer) peerConfig(w http.ResponseWriter, r *http.Request) {
 	p, err := s.findPeer(r.PathValue("id"))
@@ -307,7 +307,7 @@ func (s *HTTPServer) peerConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	server, err := s.store.Server()
 	if err != nil {
-		apiError(w, 500, "sunucu kaydı okunamadı")
+		apiError(w, 500, "Could not read server record")
 		return
 	}
 	text, err := clientConfig(server, p)
@@ -315,7 +315,7 @@ func (s *HTTPServer) peerConfig(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 400, err.Error())
 		return
 	}
-	s.service.Event("info", "peer.export", "İstemci yapılandırması indirildi: "+p.Name)
+	s.service.Event("info", "peer.export", "Client configuration downloaded: "+p.Name)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="wireguard-`+p.ID+`.conf"`)
 	_, _ = io.WriteString(w, text)
@@ -328,7 +328,7 @@ func (s *HTTPServer) peerQR(w http.ResponseWriter, r *http.Request) {
 	}
 	server, err := s.store.Server()
 	if err != nil {
-		apiError(w, 500, "sunucu kaydı okunamadı")
+		apiError(w, 500, "Could not read server record")
 		return
 	}
 	text, err := clientConfig(server, p)
@@ -338,10 +338,10 @@ func (s *HTTPServer) peerQR(w http.ResponseWriter, r *http.Request) {
 	}
 	png, err := qrcode.Encode(text, qrcode.Medium, 360)
 	if err != nil {
-		apiError(w, 500, "QR kodu oluşturulamadı")
+		apiError(w, 500, "Could not generate QR code")
 		return
 	}
-	s.service.Event("info", "peer.qr", "İstemci QR kodu görüntülendi: "+p.Name)
+	s.service.Event("info", "peer.qr", "Client QR code viewed: "+p.Name)
 	w.Header().Set("Content-Type", "image/png")
 	_, _ = w.Write(png)
 }
@@ -354,7 +354,7 @@ func (s *HTTPServer) updateServer(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 400, err.Error())
 		return
 	}
-	s.service.Event("info", "server.update", "Sunucu ayarları güncellendi")
+	s.service.Event("info", "server.update", "Server settings updated")
 	s.service.Collect(r.Context())
 	jsonResponse(w, 200, map[string]bool{"ok": true})
 }
@@ -369,7 +369,7 @@ func (s *HTTPServer) importConfig(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 400, err.Error())
 		return
 	}
-	s.service.Event("warning", "server.import", "WireGuard yapılandırması içe aktarıldı")
+	s.service.Event("warning", "server.import", "WireGuard configuration imported")
 	s.service.Collect(r.Context())
 	jsonResponse(w, 200, map[string]bool{"ok": true})
 }
@@ -389,10 +389,10 @@ func (s *HTTPServer) updateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	s.service.changeMu.Unlock()
 	if err != nil {
-		apiError(w, 500, "depolama ayarları uygulanamadı")
+		apiError(w, 500, "Could not apply storage settings")
 		return
 	}
-	s.service.Event("info", "settings.update", "İzleme ve saklama tercihleri güncellendi")
+	s.service.Event("info", "settings.update", "Monitoring and retention preferences updated")
 	s.service.Collect(r.Context())
 	jsonResponse(w, 200, map[string]bool{"ok": true})
 }
@@ -401,7 +401,7 @@ func (s *HTTPServer) clearHistory(w http.ResponseWriter, r *http.Request) {
 	err := s.store.ClearTelemetry()
 	s.service.changeMu.Unlock()
 	if err != nil {
-		apiError(w, 500, "geçmiş temizlenemedi")
+		apiError(w, 500, "Could not clear history")
 		return
 	}
 	s.service.mu.Lock()
@@ -413,27 +413,27 @@ func (s *HTTPServer) clearHistory(w http.ResponseWriter, r *http.Request) {
 func (s *HTTPServer) history(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.store.Settings()
 	if err != nil {
-		apiError(w, 500, "ayarlar okunamadı")
+		apiError(w, 500, "Could not read settings")
 		return
 	}
 	if !cfg.HistoryEnabled {
-		apiError(w, 409, "kalıcı trafik geçmişi kapalı")
+		apiError(w, 409, "Persistent traffic history is off")
 		return
 	}
 	points, err := s.store.History(360)
 	if err != nil {
-		apiError(w, 500, "geçmiş okunamadı")
+		apiError(w, 500, "Could not read history")
 		return
 	}
 	jsonResponse(w, 200, points)
 }
 func (s *HTTPServer) password(w http.ResponseWriter, r *http.Request) {
 	if s.mode == "demo" {
-		apiError(w, 409, "demo modunda parola değiştirilemez")
+		apiError(w, 409, "Password cannot be changed in demo mode")
 		return
 	}
 	if !s.auth.allowed(remoteIP(r)) {
-		apiError(w, 429, "bir dakika bekleyin")
+		apiError(w, 429, "Wait one minute")
 		return
 	}
 	var v struct {
@@ -447,12 +447,12 @@ func (s *HTTPServer) password(w http.ResponseWriter, r *http.Request) {
 	case s.auth.passwordSlot <- struct{}{}:
 		defer func() { <-s.auth.passwordSlot }()
 	default:
-		apiError(w, 429, "başka bir doğrulama sürüyor")
+		apiError(w, 429, "Another verification is in progress")
 		return
 	}
 	_, hash, err := s.store.Admin()
 	if err != nil || !verifyPassword(hash, v.Current) {
-		apiError(w, 403, "mevcut parola hatalı")
+		apiError(w, 403, "Incorrect current password")
 		return
 	}
 	next, err := hashPassword(v.Password)
@@ -461,14 +461,14 @@ func (s *HTTPServer) password(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err = s.store.ChangePassword(next); err != nil {
-		apiError(w, 500, "parola değiştirilemedi")
+		apiError(w, 500, "Could not change password")
 		return
 	}
 	s.auth.mu.Lock()
 	s.auth.sessions = map[[32]byte]session{}
 	s.auth.mu.Unlock()
 	s.auth.logout(w, r)
-	s.service.Event("info", "auth.password", "Parola değiştirildi; bütün oturumlar kapatıldı")
+	s.service.Event("info", "auth.password", "Password changed; all sessions signed out")
 	jsonResponse(w, 200, map[string]bool{"ok": true})
 }
 func (s *HTTPServer) metrics(w http.ResponseWriter, r *http.Request) {
@@ -483,7 +483,7 @@ func (s *HTTPServer) metrics(w http.ResponseWriter, r *http.Request) {
 		digest := sha256.Sum256([]byte(raw))
 		expected := s.store.MetricsHash()
 		if len(raw) < 32 || len(raw) > 128 || expected == "" || subtle.ConstantTimeCompare([]byte(expected), []byte(hex.EncodeToString(digest[:]))) != 1 {
-			apiError(w, 401, "metrik erişim anahtarı gerekiyor")
+			apiError(w, 401, "Metrics access token required")
 			return
 		}
 	}
@@ -499,16 +499,16 @@ func (s *HTTPServer) metrics(w http.ResponseWriter, r *http.Request) {
 func (s *HTTPServer) metricsToken(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.store.Settings()
 	if err != nil || !cfg.MetricsEnabled {
-		apiError(w, 409, "önce metrikleri etkinleştirip kaydedin")
+		apiError(w, 409, "Enable and save metrics first")
 		return
 	}
 	raw := token(32)
 	hash := sha256.Sum256([]byte(raw))
 	if err = s.store.SetMetricsHash(hex.EncodeToString(hash[:])); err != nil {
-		apiError(w, 500, "erişim anahtarı kaydedilemedi")
+		apiError(w, 500, "Could not save access token")
 		return
 	}
-	s.service.Event("info", "metrics.token", "Salt okunur metrik erişim anahtarı yenilendi")
+	s.service.Event("info", "metrics.token", "Read-only metrics token rotated")
 	jsonResponse(w, 201, map[string]string{"token": raw})
 }
 

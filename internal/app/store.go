@@ -236,7 +236,7 @@ func (s *Store) pruneTelemetry(db *sql.DB, cfg Settings) error {
 		return err
 	}
 	if actual > maxPages {
-		return errors.New("geçmiş veritabanı seçilen bütçeye küçültülemedi")
+		return errors.New("Could not shrink history database to the selected budget")
 	}
 	return nil
 }
@@ -249,24 +249,24 @@ func (s *Store) Record(cfg Settings, kind string, value any) error {
 	defer s.teleMu.Unlock()
 	free, _, err := diskSpace(s.dir)
 	if err == nil && free < 64*1024*1024 {
-		return errors.New("diskte 64 MB altında boş alan: kalıcı kayıt duraklatıldı")
+		return errors.New("Less than 64 MB free disk space: recording paused")
 	}
 	db, err := s.openTelemetry(cfg)
 	if err != nil {
-		return errors.New("geçmiş deposu açılamadı")
+		return errors.New("Could not open history storage")
 	}
 	if err = s.pruneTelemetry(db, cfg); err != nil {
-		return errors.New("geçmiş temizliği tamamlanamadı")
+		return errors.New("Could not complete history cleanup")
 	}
 	b, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
 	if len(b) > 256*1024 {
-		return errors.New("geçmiş örneği boyut sınırını aşıyor")
+		return errors.New("History sample exceeds the size limit")
 	}
 	if _, err = db.Exec(`INSERT INTO records(time,kind,value) VALUES(?,?,?)`, time.Now().Unix(), kind, string(b)); err != nil {
-		return errors.New("geçmiş bütçesine ulaşıldı veya disk yazımı başarısız")
+		return errors.New("History budget reached or disk write failed")
 	}
 	return nil
 }

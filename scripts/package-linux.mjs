@@ -32,17 +32,17 @@ export function installerHeader(payloadHash) {
 # WireGuard Simple: self-extracting installer for a target Linux server.
 set -euo pipefail
 if [[ $1 == --help || $1 == -h ]]; then
-  printf '%s\n' 'WireGuard Simple — tek dosyalik Debian/Ubuntu kurucusu' 'Kullanim: sudo bash wgsimple-install.run [--check] [--no-start] [--no-deps] [--interface wg0]' 'Windows veya WSL uzerinde kurulum yapilmaz.'
+  printf '%s\n' 'WireGuard Simple — Linux installer' 'Debian / Ubuntu / RHEL / CentOS Stream / AlmaLinux / Rocky Linux / Fedora' 'Usage: sudo bash wgsimple-install.run [--check] [--no-start] [--no-deps] [--interface wg0]' 'Does not install on Windows or WSL.'
   exit 0
 fi
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
-[[ $(uname -s) == Linux ]] || { printf '%s\n' 'Bu kurucu yalnizca hedef Linux sunucusunda calisir.' >&2; exit 1; }
-case $(uname -m) in x86_64|amd64) arch=amd64 ;; aarch64|arm64) arch=arm64 ;; *) printf '%s\n' 'Desteklenmeyen mimari.' >&2; exit 1 ;; esac
-if [[ -r /proc/sys/kernel/osrelease ]] && grep -qi microsoft /proc/sys/kernel/osrelease; then printf '%s\n' 'WSL yerine hedef Linux sunucusunu kullanin.' >&2; exit 1; fi
+[[ $(uname -s) == Linux ]] || { printf '%s\n' 'Run this installer on the target Linux server only.' >&2; exit 1; }
+case $(uname -m) in x86_64|amd64) arch=amd64 ;; aarch64|arm64) arch=arm64 ;; *) printf '%s\n' 'Unsupported architecture.' >&2; exit 1 ;; esac
+if [[ -r /proc/sys/kernel/osrelease ]] && grep -qi microsoft /proc/sys/kernel/osrelease; then printf '%s\n' 'Use the target Linux server instead of WSL.' >&2; exit 1; fi
 if ((EUID != 0)); then
   check=0
   for arg in "$@"; do if [[ $arg == --check ]]; then check=1; fi; done
-  ((check)) || { printf '%s\n' 'Kurulum icin sudo bash wgsimple-install.run kullanin.' >&2; exit 1; }
+  ((check)) || { printf '%s\n' 'Install using sudo bash wgsimple-install.run.' >&2; exit 1; }
 fi
 umask 077
 temporary=$(mktemp -d /tmp/wgsimple-package.XXXXXX)
@@ -55,9 +55,9 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 payload_line=$(awk '$0 == "__WGS_PAYLOAD__" { print NR + 1; exit }' "$0")
-[[ $payload_line =~ ^[0-9]+$ ]] || { printf '%s\n' 'Paket basligi bozuk.' >&2; exit 1; }
+[[ $payload_line =~ ^[0-9]+$ ]] || { printf '%s\n' 'Invalid package header.' >&2; exit 1; }
 tail -n +"$payload_line" "$0" > "$temporary/payload.tar.gz"
-printf '%s  %s\n' '@PAYLOAD_SHA256@' "$temporary/payload.tar.gz" | sha256sum --check --status - || { printf '%s\n' 'Paket butunluk kontrolu basarisiz; kurulum yapilmadi.' >&2; exit 1; }
+printf '%s  %s\n' '@PAYLOAD_SHA256@' "$temporary/payload.tar.gz" | sha256sum --check --status - || { printf '%s\n' 'Package integrity check failed; nothing installed.' >&2; exit 1; }
 tar --extract --gzip --file "$temporary/payload.tar.gz" --directory "$temporary" --no-same-owner --no-same-permissions
 bash "$temporary/install.sh" --binary "$temporary/wgsimple-$arch" "$@"
 exit 0
@@ -71,6 +71,7 @@ export async function buildInstaller() {
     ['wgsimple-amd64', 'bin/wgsimple-linux-amd64', 0o700],
     ['wgsimple-arm64', 'bin/wgsimple-linux-arm64', 0o700],
     ['KURULUM.md', 'KURULUM.md', 0o600],
+    ['INSTALL.md', 'INSTALL.md', 0o600],
     ['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.md', 0o600],
     ['LICENSE', 'LICENSE', 0o600],
   ];

@@ -37,10 +37,10 @@ func NewService(store *Store, engine Engine, mode, version string) (*Service, er
 	var storedMode string
 	modeErr := store.readConfig("mode", &storedMode)
 	if modeErr != nil && !errors.Is(modeErr, sql.ErrNoRows) {
-		return nil, errors.New("veri klasörünün çalışma modu okunamadı")
+		return nil, errors.New("Could not read data directory mode")
 	}
 	if modeErr == nil && storedMode != mode {
-		return nil, errors.New("demo ve canlı mod aynı veri klasörünü kullanamaz")
+		return nil, errors.New("Demo and live modes cannot share a data directory")
 	}
 	if modeErr != nil {
 		if _, err := store.db.Exec(`INSERT OR IGNORE INTO config(key,value) VALUES('mode',?)`, `"`+mode+`"`); err != nil {
@@ -59,9 +59,9 @@ func NewService(store *Store, engine Engine, mode, version string) (*Service, er
 		if err != nil {
 			return nil, err
 		}
-		server.Name = "İstanbul · edge-01"
+		server.Name = "Istanbul · edge-01"
 		server.Endpoint = "vpn.example.com"
-		for i, name := range []string{"MacBook Pro", "iPhone 16", "Ofis bilgisayarı", "Ev sunucusu", "Pixel 9", "Misafir cihazı"} {
+		for i, name := range []string{"MacBook Pro", "iPhone 16", "Office PC", "Home server", "Pixel 9", "Guest device"} {
 			priv, pub, err := newKeyPair()
 			if err != nil {
 				return nil, err
@@ -71,7 +71,7 @@ func NewService(store *Store, engine Engine, mode, version string) (*Service, er
 		if err = store.SaveControl(server, peers); err != nil {
 			return nil, err
 		}
-		for i, detail := range []string{"Demo çalışma alanı hazırlandı", "İstemci yapılandırmaları yüklendi", "Canlı izleme başlatıldı"} {
+		for i, detail := range []string{"Demo workspace ready", "Client configurations loaded", "Live monitoring started"} {
 			s.events = append(s.events, Event{ID: token(8), Time: time.Now().Add(-time.Duration(3-i) * time.Minute).UTC(), Level: "info", Action: "system", Detail: detail})
 		}
 	}
@@ -80,7 +80,7 @@ func NewService(store *Store, engine Engine, mode, version string) (*Service, er
 			s.points = append(s.points, Point{Time: time.Now().Add(-time.Duration(70-i) * 3 * time.Second).UTC(), Rx: 165000 + 35000*math.Sin(float64(i)*.32) + 21000*math.Sin(float64(i)*.83), Tx: 54000 + 18000*math.Sin(float64(i)*.22+1), Active: 4})
 		}
 	}
-	s.Event("info", "system.start", "Yönetim paneli başlatıldı")
+	s.Event("info", "system.start", "Management panel started")
 	s.Collect(context.Background())
 	return s, nil
 }
@@ -176,7 +176,7 @@ func (s *Service) Collect(ctx context.Context) {
 		warnings = append(warnings, readErr.Error())
 	}
 	if s.mode == "live" && server.Endpoint == "" {
-		warnings = append(warnings, "İstemci bağlantıları için sunucu endpoint adresini ayarlayın.")
+		warnings = append(warnings, "Set the server endpoint for client connections.")
 	}
 	views := []PeerView{}
 	point := Point{Time: now}
@@ -233,7 +233,7 @@ func (s *Service) Collect(ctx context.Context) {
 	}
 	if now.Sub(s.lastCleanup) > 10*time.Minute {
 		if err = s.store.ReconfigureTelemetry(cfg); err != nil {
-			s.setHistoryError("geçmiş temizliği tamamlanamadı")
+			s.setHistoryError("Could not complete history cleanup")
 		}
 		s.lastCleanup = now
 	}
@@ -263,9 +263,9 @@ func (s *Service) applyControl(ctx context.Context, old Server, oldPeers []Peer,
 	}
 	if err := s.store.SaveControl(next, peers); err != nil {
 		if rollbackErr := s.engine.Apply(ctx, old, oldPeers); rollbackErr != nil {
-			return errors.New("kayıt ve geri alma başarısız: yapılandırmayı Linux konsolundan kontrol edin")
+			return errors.New("Save and rollback failed; check configuration from the Linux console")
 		}
-		return errors.New("kayıt başarısız; önceki WireGuard yapılandırması geri yüklendi")
+		return errors.New("Save failed; previous WireGuard configuration restored")
 	}
 	return nil
 }
@@ -274,10 +274,10 @@ func (s *Service) CreatePeer(ctx context.Context, name string, expires *time.Tim
 	s.changeMu.Lock()
 	defer s.changeMu.Unlock()
 	if !validName(name) {
-		return PeerView{}, errors.New("istemci adı 1–64 karakter olmalı")
+		return PeerView{}, errors.New("Client name must contain 1–64 characters")
 	}
 	if expires != nil && (expires.Before(time.Now()) || expires.After(time.Now().AddDate(5, 0, 0))) {
-		return PeerView{}, errors.New("bitiş tarihi gelecekte ve en fazla 5 yıl içinde olmalı")
+		return PeerView{}, errors.New("Expiry must be in the future and within 5 years")
 	}
 	server, err := s.store.Server()
 	if err != nil {
@@ -288,11 +288,11 @@ func (s *Service) CreatePeer(ctx context.Context, name string, expires *time.Tim
 		return PeerView{}, err
 	}
 	if len(peers) >= 1024 {
-		return PeerView{}, errors.New("en fazla 1024 istemci destekleniyor")
+		return PeerView{}, errors.New("At most 1024 clients are supported")
 	}
 	for _, p := range peers {
 		if p.Name == name {
-			return PeerView{}, errors.New("bu isimde bir istemci zaten var")
+			return PeerView{}, errors.New("A client with this name already exists")
 		}
 	}
 	address, err := allocateIP(server, peers)
@@ -325,7 +325,7 @@ func allocateIP(server Server, peers []Peer) (string, error) {
 		for _, v := range splitCIDRs(p.Address) {
 			if pr, e := netip.ParsePrefix(v); e == nil {
 				if pr.Bits() != 32 {
-					return "", errors.New("yönlendirilmiş alt ağ içeren yapılandırmada otomatik IP dağıtımı kapalı")
+					return "", errors.New("Automatic IP allocation is disabled with routed subnets")
 				}
 				used[pr.Addr()] = true
 			}
@@ -336,7 +336,7 @@ func allocateIP(server Server, peers []Peer) (string, error) {
 			return ip.String() + "/32", nil
 		}
 	}
-	return "", errors.New("sunucu alt ağında boş istemci adresi yok")
+	return "", errors.New("No available client address in the server subnet")
 }
 func (s *Service) ChangePeer(ctx context.Context, id string, enabled *bool, remove bool) error {
 	s.changeMu.Lock()
@@ -359,7 +359,7 @@ func (s *Service) ChangePeer(ctx context.Context, id string, enabled *bool, remo
 			}
 			if enabled != nil {
 				if *enabled && p.ExpiresAt != nil && p.ExpiresAt.Before(time.Now()) {
-					return errors.New("süresi dolan istemci etkinleştirilemez")
+					return errors.New("An expired client cannot be enabled")
 				}
 				p.Enabled = *enabled
 			}
@@ -367,7 +367,7 @@ func (s *Service) ChangePeer(ctx context.Context, id string, enabled *bool, remo
 		next = append(next, p)
 	}
 	if !found {
-		return errors.New("istemci bulunamadı")
+		return errors.New("Client not found")
 	}
 	return s.applyControl(ctx, server, old, server, next)
 }
@@ -394,7 +394,7 @@ func (s *Service) UpdateServer(ctx context.Context, input Server) error {
 				pr, e := netip.ParsePrefix(v)
 				network, _ := netip.ParsePrefix(input.Address)
 				if e != nil || !network.Contains(pr.Addr()) {
-					return errors.New("mevcut istemci adresleri yeni sunucu ağına uymuyor")
+					return errors.New("Existing client addresses do not fit the new server network")
 				}
 			}
 		}
@@ -418,7 +418,7 @@ func (s *Service) Import(ctx context.Context, raw string) error {
 	// overwrite a VPN. Every later mutation still checks the public key.
 	if s.mode == "live" {
 		if _, up, e := s.engine.Read(ctx, server, peers); e != nil || !up {
-			return errors.New("içe aktarmadan önce mevcut WireGuard arayüzünü başlatın")
+			return errors.New("Start the existing WireGuard interface before importing")
 		}
 	}
 	return s.store.SaveControl(server, peers)
@@ -432,9 +432,9 @@ func (s *Service) expire(ctx context.Context) {
 		if p.Enabled && p.ExpiresAt != nil && p.ExpiresAt.Before(time.Now()) {
 			off := false
 			if err = s.ChangePeer(ctx, p.ID, &off, false); err == nil {
-				s.Event("info", "peer.expire", "İstemcinin süresi doldu: "+p.Name)
+				s.Event("info", "peer.expire", "Client expired: "+p.Name)
 			} else {
-				s.Event("error", "peer.expire", "Süresi dolan istemci devre dışı bırakılamadı")
+				s.Event("error", "peer.expire", "Could not disable expired client")
 			}
 		}
 	}

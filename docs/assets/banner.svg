@@ -16,6 +16,6 @@
   <text x="60" y="233" font-family="Segoe UI,Arial,sans-serif" font-size="22" fill="#b5cab9">One Go application. Live monitoring. Optional history.</text>
   <rect x="60" y="271" width="144" height="31" rx="15" fill="#c5e891" fill-opacity=".13"/>
   <circle cx="78" cy="287" r="4" fill="#c5e891"/>
-  <text x="91" y="292" font-family="Segoe UI,Arial,sans-serif" font-size="14" fill="#c5e891">DEBIAN / UBUNTU</text>
-  <text x="225" y="292" font-family="Segoe UI,Arial,sans-serif" font-size="14" fill="#b5cab9">amd64 + arm64</text>
+  <text x="91" y="292" font-family="Segoe UI,Arial,sans-serif" font-size="14" fill="#c5e891">LINUX SERVERS</text>
+  <text x="225" y="292" font-family="Segoe UI,Arial,sans-serif" font-size="14" fill="#b5cab9">Debian · Ubuntu · RHEL family · Fedora / amd64 + arm64</text>
 </svg>

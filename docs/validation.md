@@ -39,7 +39,7 @@ Tarih: 27 Ekim 2026. Geliştirme ortamı: Windows/amd64, proje klasörüne taş�
 
 ## Paket boyutları
 
-Son doğrulanan derleme:
+İlk sürümün doğrulanmış derlemesi (v0.1.0):
 
 | Dosya | Bayt |
 | --- | ---: |
@@ -61,3 +61,5 @@ Bu boyutlar geliştirme araçlarını veya Linux'un WireGuard/iproute2 paketleri
 - Go race detector bu Windows ortamında C derleyicisi bulunmadığından yerelde çalıştırılmadı; ilk sürümün GitHub Linux CI çalışmasında başarıyla geçti. Eşzamanlılık senaryosu yerelde normal Go testleriyle de denetlendi.
 
 Kullanıcının görsel repo tanıtımı isteği üzerine, yalnızca uygulamanın sentetik demo verilerini gösteren `overview.png` ve `mobile.png` ekran görüntüleri README için seçilmiştir. Gerçek istemci, sunucu veya anahtar bilgisi içermezler; ekran değerleri benchmark sonucu değildir. Diğer ekran görüntüleri Git kapsamı dışındadır. Geçici önizleme sunucusu doğrulamadan sonra kapatılır; demoyu `start-demo.ps1` ile yeniden açabilirsiniz.
+
+v0.2.0 ile ekran görüntüleri İngilizce olarak yenilendi. Çok dil ve dağıtım desteği doğrulaması: [v0.2 validation (English)](v0.2-validation.md).

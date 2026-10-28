@@ -50,13 +50,14 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           version="${tag#v}"
-          if [[ -z $version ]]; then version=0.1.0-dev; fi
+          if [[ -z $version ]]; then version=0.2.0-dev; fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Build embedded interface
         run: |
           npm ci
           npm run check
           npm run build
+          npm run test:i18n
       - name: Backend and concurrency tests
         run: |
           go test -race ./... -count=1
@@ -76,12 +77,13 @@ jobs:
           bash -n scripts/install.sh
           bash -n scripts/install-linux.sh
           bash tests/install-test.sh
+          bash tests/platform-test.sh
       - name: Package and verify installer
         run: |
           npm run package:linux
           npm run test:package
           bash release/wgsimple-install.run --help
-          cp KURULUM.md LICENSE THIRD_PARTY_NOTICES.md release/
+          cp INSTALL.md KURULUM.md LICENSE THIRD_PARTY_NOTICES.md release/
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: linux-installer
@@ -90,8 +92,50 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+  package-platforms:
+    name: Packages (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Debian 13
+            image: debian:13-slim
+          - name: Ubuntu 24.04
+            image: ubuntu:24.04
+          - name: Rocky Linux 9
+            image: rockylinux/rockylinux:9
+          - name: AlmaLinux 9
+            image: almalinux:9
+          - name: CentOS Stream 9
+            image: quay.io/centos/centos:stream9
+          - name: Fedora 43
+            image: registry.fedoraproject.org/fedora:43
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Resolve and install tools in an isolated distribution container
+        env:
+          PLATFORM_IMAGE: ${{ matrix.image }}
+        shell: bash
+        run: |
+          # No host networking, privileged mode, NET_ADMIN, or service startup.
+          docker run --rm --cap-drop=NET_RAW \
+            --volume "$GITHUB_WORKSPACE:/workspace:ro" \
+            "$PLATFORM_IMAGE" bash -ec '
+              source /workspace/scripts/install.sh
+              source /etc/os-release
+              wgs_distribution "$ID" "${VERSION_ID:-}" "$NAME"
+              wgs_package_manager
+              wgs_dependencies
+              wg --version
+              command -v wg-quick ip curl modprobe
+            '
+
   publish:
-    needs: build
+    needs: [build, package-platforms]
     if: github.event_name != 'pull_request' && needs.build.outputs.release_tag != ''
     runs-on: ubuntu-latest
     permissions:
@@ -118,5 +162,5 @@ jobs:
           else
             gh release create "$RELEASE_TAG" --draft --target "$GITHUB_SHA" --title "WireGuard Simple $RELEASE_TAG" --notes-file docs/release-notes.md
           fi
-          gh release upload "$RELEASE_TAG" release/wgsimple-install.run release/SHA256SUMS release/KURULUM.md release/LICENSE release/THIRD_PARTY_NOTICES.md --clobber
+          gh release upload "$RELEASE_TAG" release/wgsimple-install.run release/SHA256SUMS release/INSTALL.md release/KURULUM.md release/LICENSE release/THIRD_PARTY_NOTICES.md --clobber
           gh release edit "$RELEASE_TAG" --draft=false --latest

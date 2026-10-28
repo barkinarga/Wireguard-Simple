@@ -25,13 +25,13 @@ type Settings struct {
 func DefaultSettings() Settings { return Settings{RetentionDays: 7, BudgetMB: 32, SampleSeconds: 60} }
 func (s Settings) Validate() error {
 	if s.RetentionDays < 1 || s.RetentionDays > 30 {
-		return errors.New("saklama süresi 1–30 gün olmalı")
+		return errors.New("Retention must be 1–30 days")
 	}
 	if s.BudgetMB < 16 || s.BudgetMB > 512 {
-		return errors.New("disk bütçesi 16–512 MB olmalı")
+		return errors.New("Storage budget must be 16–512 MB")
 	}
 	if s.SampleSeconds < 30 || s.SampleSeconds > 3600 {
-		return errors.New("örnekleme aralığı 30–3600 saniye olmalı")
+		return errors.New("Sampling interval must be 30–3600 seconds")
 	}
 	return nil
 }
@@ -51,7 +51,7 @@ type Server struct {
 
 func DefaultServer(iface string) Server {
 	priv, pub, _ := newKeyPair()
-	return Server{Name: "Ana sunucu", Interface: iface, Address: "10.64.0.1/24", Port: 51820, DNS: "1.1.1.1, 1.0.0.1", AllowedIPs: "0.0.0.0/0", MTU: 1420, PrivateKey: priv, PublicKey: pub}
+	return Server{Name: "Main server", Interface: iface, Address: "10.64.0.1/24", Port: 51820, DNS: "1.1.1.1, 1.0.0.1", AllowedIPs: "0.0.0.0/0", MTU: 1420, PrivateKey: priv, PublicKey: pub}
 }
 
 var interfacePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,14}$`)
@@ -71,27 +71,27 @@ func validName(s string) bool {
 
 func (s Server) Validate() error {
 	if !validName(s.Name) || !ValidInterface(s.Interface) {
-		return errors.New("sunucu adı veya arayüz adı geçersiz")
+		return errors.New("Invalid server or interface name")
 	}
 	p, err := netip.ParsePrefix(s.Address)
 	if err != nil || !p.Addr().Is4() || p.Bits() < 16 || p.Bits() > 30 {
-		return errors.New("sunucu adresi /16–/30 arasında bir IPv4 ağı olmalı")
+		return errors.New("Server address must be an IPv4 network between /16 and /30")
 	}
 	if s.Port < 1 || s.Port > 65535 || s.MTU < 1280 || s.MTU > 1500 {
-		return errors.New("port veya MTU değeri geçersiz")
+		return errors.New("Invalid port or MTU")
 	}
 	if s.Endpoint != "" {
 		if len(s.Endpoint) > 253 || strings.ContainsAny(s.Endpoint, "\r\n\t /#;=\"'") {
-			return errors.New("endpoint yalnızca IP veya alan adı olmalı")
+			return errors.New("Endpoint must be an IP address or domain only")
 		}
 		if ip, e := netip.ParseAddr(s.Endpoint); e != nil || !ip.IsValid() {
 			for _, part := range strings.Split(s.Endpoint, ".") {
 				if len(part) < 1 || len(part) > 63 || strings.HasPrefix(part, "-") || strings.HasSuffix(part, "-") {
-					return errors.New("endpoint alan adı geçersiz")
+					return errors.New("Invalid endpoint domain")
 				}
 				for _, c := range part {
 					if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-') {
-						return errors.New("endpoint alan adı geçersiz")
+						return errors.New("Invalid endpoint domain")
 					}
 				}
 			}
@@ -99,17 +99,17 @@ func (s Server) Validate() error {
 	}
 	for _, d := range strings.Split(s.DNS, ",") {
 		if _, err := netip.ParseAddr(strings.TrimSpace(d)); err != nil {
-			return errors.New("DNS adresleri IP biçiminde olmalı")
+			return errors.New("DNS addresses must be IP addresses")
 		}
 	}
 	if err := validateCIDRs(s.AllowedIPs); err != nil {
 		return err
 	}
 	if !validKey(s.PrivateKey) || !validKey(s.PublicKey) {
-		return errors.New("sunucu anahtarı geçersiz")
+		return errors.New("Invalid server key")
 	}
 	if pub, err := publicFromPrivate(s.PrivateKey); err != nil || pub != s.PublicKey {
-		return errors.New("sunucu anahtar çifti eşleşmiyor")
+		return errors.New("Server key pair does not match")
 	}
 	return nil
 }
@@ -230,11 +230,11 @@ func validKey(s string) bool {
 }
 func validateCIDRs(s string) error {
 	if len(s) > 2048 || strings.TrimSpace(s) == "" {
-		return errors.New("Allowed IPs boş veya çok uzun")
+		return errors.New("Allowed IPs is empty or too long")
 	}
 	for _, v := range strings.Split(s, ",") {
 		if _, e := netip.ParsePrefix(strings.TrimSpace(v)); e != nil {
-			return errors.New("Allowed IPs geçerli CIDR adresleri içermeli")
+			return errors.New("Allowed IPs must contain valid CIDR addresses")
 		}
 	}
 	return nil
@@ -250,10 +250,10 @@ func splitCIDRs(s string) []string {
 func publicServer(s Server) Server { s.PrivateKey = ""; return s }
 func clientConfig(s Server, p Peer) (string, error) {
 	if p.PrivateKey == "" {
-		return "", errors.New("içe aktarılan istemcinin özel anahtarı sunucuda bulunmuyor")
+		return "", errors.New("The imported client's private key is not available on the server")
 	}
 	if s.Endpoint == "" {
-		return "", errors.New("önce sunucu endpoint adresini ayarlayın")
+		return "", errors.New("Set the server endpoint first")
 	}
 	psk := ""
 	if p.PresharedKey != "" {

@@ -2,7 +2,7 @@
 
 [English installation guide](INSTALL.md) · [Türkçe README](README.tr.md)
 
-Bu adımlar **Debian/Ubuntu Linux sunucusu** içindir. Windows bilgisayarına WireGuard kurmayın. Kurucu Windows ve WSL üzerinde çalışmayı reddeder.
+Bu adımlar **Debian, Ubuntu, RHEL, CentOS Stream, AlmaLinux, Rocky Linux veya Fedora sunucusu** içindir. systemd, amd64/arm64 ve WireGuard destekli çekirdek gerekir. EL8 için uygun çekirdek/modül önceden gerekebilir; CentOS için Stream 9+ kullanılır. [Dağıtım gereksinimleri (English)](docs/platforms.md). Windows bilgisayarına WireGuard kurmayın. Kurucu Windows ve WSL üzerinde çalışmayı reddeder.
 
 ## 1. Tek dosyayı sunucuya gönder
 
@@ -13,6 +13,8 @@ curl -fL --retry 3 -o wgsimple-install.run https://github.com/barkinarga/Wiregua
 ```
 
 `curl` yoksa önce `sudo apt-get update && sudo apt-get install -y curl ca-certificates` çalıştırın veya aşağıdaki dosya aktarım yolunu kullanın.
+
+RPM tabanlı sistemlerde eksik `curl` için `sudo dnf install -y curl ca-certificates` kullanılır; `dnf` olmayan EL sistemlerinde `yum` kullanılabilir. Mevcut `curl` veya `curl-minimal` sağlayıcınız varsa değiştirmeyin, doğrudan kurulum komutuna geçin.
 
 Projedeki `release/wgsimple-install.run` dosyasını sunucuya kopyalayın. amd64/arm64 seçimi otomatiktir. Örneğin, kendi bilgisayarınızda proje klasöründen:
 
@@ -30,7 +32,7 @@ SSH ile sunucuya bağlanın ve dosyanın bulunduğu klasörde çalıştırın:
 sudo bash wgsimple-install.run
 ```
 
-Kurucu doğru mimariyi seçer, paketin bütünlüğünü doğrular, eksik `wireguard-tools`, `iproute2`, `curl` araçlarını kurar ve panel servisini otomatik başlatır. Sunucuya Go, Node.js, Docker veya ayrı bir veritabanı servisi kurulmaz. Kurulumun geçici dosyaları işlem sonunda temizlenir.
+Kurucu doğru mimariyi seçer, paketin bütünlüğünü doğrular, eksik WireGuard araçlarını, dağıtıma göre `iproute2`/`iproute`, `curl` ve `kmod` paketlerini kurar. Çekirdek desteğini kontrol edip panel servisini başlatır. Ek depo açmaz veya çekirdek değiştirmez. Sunucuya Go, Node.js, Docker veya ayrı bir veritabanı servisi kurulmaz. Kurulumun geçici dosyaları işlem sonunda temizlenir.
 
 Yeni kurulumda trafik geçmişi, kalıcı log ve Prometheus kapalıdır. Var olan kurulumun istemcileri, anahtarları, servis dosyası ve kayıt tercihleri korunur. Panel başlatılamazsa kurucu önceki uygulamayı ve servis durumunu geri yüklemeye çalışır.
 
@@ -42,7 +44,7 @@ Kendi bilgisayarınızda SSH tünelini açın ve açık bırakın:
 ssh -L 8787:127.0.0.1:8787 KULLANICI@SUNUCU_IP
 ```
 
-Tarayıcıda **http://127.0.0.1:8787** adresini açın.
+Tarayıcıda **http://127.0.0.1:8787** adresini açın. Varsayılan dil İngilizce; giriş ekranındaki veya üst çubuktaki seçiciden Türkçe dahil 10 dil seçilebilir.
 
 İlk giriş için sunucudaki terminalde:
 
@@ -56,7 +58,7 @@ Panel dışarıya açık HTTP portu açmaz; SSH tüneli üzerinden erişilir. Ke
 
 ## 4. VPN bağlantısını hazırla
 
-Panelde **Ayarlar → Endpoint** alanına sunucunuzun genel IP adresini veya alan adını yazın. Ardından **İstemci ekle** ile cihaz oluşturup QR kodunu veya yapılandırmayı kullanın.
+Panelde **Settings → Endpoint** (Türkçe: Ayarlar → Endpoint) alanına sunucunuzun genel IP adresini veya alan adını yazın. Ardından **Add client** (İstemci ekle) ile cihaz oluşturup QR kodunu veya yapılandırmayı kullanın.
 
 **Tek komut paneli ve gerekli WireGuard araçlarını kurar.** VPN'in internet çıkışı için sunucudaki forwarding/NAT ve UDP güvenlik duvarı kuralları ayrıca hazırlanmalıdır. Kurucu bunları, DNS ayarlarını veya mevcut VPN arayüzlerini otomatik değiştirmez. İlk sürümün gerçek Linux VPN bağlantı testi henüz tamamlanmamıştır.
 

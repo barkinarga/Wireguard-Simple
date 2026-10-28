@@ -8,6 +8,18 @@ Bağımsız kaynak kodu ve arayüzüyle, hafif bir WireGuard yönetim konsolu. G
 
 **Durum:** ilk çalışan geliştirme sürümü. Windows'ta yalnızca güvenli demo çalıştırılır. Linux/amd64 ve Linux/arm64 için tek dosyalık uygulama derlenir. Gerçek Linux WireGuard bağlantısı ve yönlendirme, hedef test sunucusunda ayrıca doğrulanmalıdır; bu sürüm için üretim doğrulaması yapılmış olduğu iddia edilmez.
 
+## Dil desteği
+
+Uygulamanın varsayılan dili **İngilizce**. Üst çubuktan veya giriş ekranından **İngilizce, Türkçe, Almanca, Fransızca, İspanyolca, İtalyanca, Portekizce, Rusça, Arapça ve Basitleştirilmiş Çince** seçilebilir. Tercih bu tarayıcıda hatırlanır; dil değişirken kaydedilmemiş form alanları korunur. Arapçada sağdan sola düzen kullanılır; tarih, sayı ve göreli süreler seçilen dile uyar.
+
+Çeviriler uygulamaya gömülüdür; ek servis veya internet gerektirmez. Sık kullanılan doğrulama ve olay mesajları çevrilir; düşük seviyeli WireGuard/işletim sistemi tanı ayrıntıları İngilizcedir. İstemci adları, anahtarlar ve yapılandırma dosyaları çevrilmez. Repo açıklamaları ve kurulum belgeleri İngilizce/Türkçe olarak tutulur.
+
+## Linux dağıtımları
+
+Kurucu **Debian, Ubuntu, RHEL, AlmaLinux, Rocky Linux, CentOS Stream ve Fedora** sistemlerini tanır. Debian/Ubuntu için `apt-get` ve `iproute2`; RPM tabanlı sistemlerde `dnf` (RHEL ailesinde gerektiğinde `yum`) ve `iproute` kullanılır. RHEL/Alma/Rocky için EL8+, CentOS için Stream 9+ gerekir. Eski CentOS Linux 7/8 ve Stream 8 ile değiştirilemez ostree tabanlı sistemler bu kurucunun kapsamı dışındadır.
+
+WireGuard çekirdek desteği arayüz oluşturmadan kontrol edilir. EL8'de uygun çekirdek/modülün önceden hazırlanması gerekebilir. Kurucu ek depo açmaz veya çekirdek değiştirmez; SELinux ve firewalld kapatılmaz. Dağıtım kararları ve paket akışları taklit komutlarla test edilir; her dağıtımda gerçek VPN/SELinux testi henüz tamamlanmadı. Ayrıntılar: [Platform notları (English)](docs/platforms.md).
+
 ## Görünüm
 
 ![WireGuard Simple genel bakış ekranı](docs/screenshots/overview.png)
@@ -18,7 +30,7 @@ Bağımsız kaynak kodu ve arayüzüyle, hafif bir WireGuard yönetim konsolu. G
 
 ## Hızlı kurulum
 
-Basit adımlar: **[KURULUM.md](KURULUM.md)**. Hedef Debian/Ubuntu sunucusunda:
+Basit adımlar: **[KURULUM.md](KURULUM.md)**. Hedef desteklenen Linux sunucusunda:
 
 ```bash
 curl -fL --retry 3 -o wgsimple-install.run https://github.com/barkinarga/Wireguard-Simple/releases/latest/download/wgsimple-install.run && sudo bash wgsimple-install.run
@@ -82,7 +94,7 @@ Uygulama belleği göstergesi Go çalışma zamanının ayırdığı bellektir (
 
 ## Linux sunucusunda çalıştırma
 
-Bu komutlar **hedef Debian/Ubuntu test sunucusu** içindir. Windows bilgisayarında çalıştırılmaz.
+Bu komutlar **hedef Linux test sunucusu** içindir. Windows bilgisayarında çalıştırılmaz.
 
 Ön koşullar: WireGuard destekli Linux çekirdeği, `wireguard-tools`, `iproute2` ve systemd. Örnek dağıtım kurulumu:
 

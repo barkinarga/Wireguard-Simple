@@ -109,7 +109,7 @@ func remoteIP(r *http.Request) string {
 }
 func hashPassword(password string) (string, error) {
 	if len(password) < 12 || len(password) > 256 {
-		return "", errors.New("parola 12–256 karakter olmalı")
+		return "", errors.New("Password must contain 12–256 characters")
 	}
 	salt := make([]byte, 16)
 	if _, err := rand.Read(salt); err != nil {
@@ -140,12 +140,12 @@ func verifyPassword(encoded, password string) bool {
 func (s *HTTPServer) authMutation(w http.ResponseWriter, r *http.Request) (session, bool) {
 	user, ok := s.auth.get(r)
 	if !ok {
-		apiError(w, 401, "oturum açmanız gerekiyor")
+		apiError(w, 401, "Sign in is required")
 		return session{}, false
 	}
 	if r.Method != "GET" && r.Method != "HEAD" {
 		if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-CSRF-Token")), []byte(user.CSRF)) != 1 {
-			apiError(w, 403, "istek doğrulanamadı; sayfayı yenileyin")
+			apiError(w, 403, "Request could not be verified; reload the page")
 			return session{}, false
 		}
 	}

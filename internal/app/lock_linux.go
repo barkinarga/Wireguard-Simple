@@ -19,7 +19,7 @@ func LockData(dir string) (func(), error) {
 	}
 	if err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		_ = f.Close()
-		return nil, errors.New("bu veri klasörü başka bir uygulama tarafından kullanılıyor")
+		return nil, errors.New("This data directory is in use by another application")
 	}
 	return func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN); _ = f.Close() }, nil
 }
