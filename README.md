@@ -1,178 +1,127 @@
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="WireGuard Simple — Clear control. Lightweight by default." width="960">
+</p>
+
+<p align="center">
+  <strong>English</strong> · <a href="README.tr.md">Türkçe</a><br>
+  <a href="INSTALL.md">Installation guide</a> · <a href="https://github.com/barkinarga/Wireguard-Simple/releases/latest">Download</a> · <a href="#preview">Preview</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/barkinarga/Wireguard-Simple/actions/workflows/build-release.yml"><img src="https://github.com/barkinarga/Wireguard-Simple/actions/workflows/build-release.yml/badge.svg?branch=readme" alt="Build and release status"></a>
+</p>
+
 # WireGuard Simple
 
-Bağımsız kaynak kodu ve arayüzüyle, hafif bir WireGuard yönetim konsolu. Go sunucusu, derlenmiş TypeScript/CSS arayüzünü kendi içinde taşır. Hedef Linux sunucusunda Node.js, npm, ayrı bir web sunucusu veya ayrı veritabanı servisi gerekmez.
+A lightweight WireGuard management console for Debian and Ubuntu, with an original interface, live monitoring, and optional history. Built independently in Go and TypeScript.
 
-**Durum:** ilk çalışan geliştirme sürümü. Windows'ta yalnızca güvenli demo çalıştırılır. Linux/amd64 ve Linux/arm64 için tek dosyalık uygulama derlenir. Gerçek Linux WireGuard bağlantısı ve yönlendirme, hedef test sunucusunda ayrıca doğrulanmalıdır; bu sürüm için üretim doğrulaması yapılmış olduğu iddia edilmez.
+The compiled interface is embedded in the Go application. Your server needs **one application, WireGuard tools, and systemd**. No Node.js, separate frontend server, or database service is required at runtime.
 
-## Hızlı kurulum
+**Early development release:** builds, automated tests, and installer checks pass in Linux CI. Real WireGuard connectivity, routing, reboot recovery, and resource use on a small Linux server still need end-to-end validation. The current application interface and installer messages are in Turkish; this README and the English installation guide describe the same release.
 
-Basit adımlar: **[KURULUM.md](KURULUM.md)**. Hedef Debian/Ubuntu sunucusunda:
+## Preview
+
+![Desktop overview showing client status, traffic, and server health](docs/screenshots/overview.png)
+
+*Desktop demo. All displayed clients, addresses, traffic, and server details are synthetic sample data. These screenshots are not performance benchmarks.*
+
+<details>
+<summary>Mobile preview</summary>
+<br>
+<img src="docs/screenshots/mobile.png" alt="Mobile demo with responsive status cards and live traffic chart" width="375">
+</details>
+
+## What you can do
+
+| Area | Features |
+| --- | --- |
+| Manage clients | Create clients, allocate IPv4 addresses, generate keys, download configurations, and display locally generated QR codes. Pause, resume, delete, or set an expiry date. |
+| Observe the server | View traffic rates, recent handshakes, client counters, system health, and application memory from one dashboard. |
+| Configure WireGuard | Set endpoint, subnet, port, DNS, MTU, and client AllowedIPs. Import a server configuration with validation; executable hooks are rejected. |
+| Choose persistence | Enable traffic history and administrative event history separately, with retention and storage limits. Clear history without deleting client settings. |
+| Export metrics | Optionally enable Prometheus with a separate, read-only access token. |
+| Control access | First-run setup token, administrator login, Argon2id password hashing, expiring sessions, CSRF checks, and login rate limits in live mode. |
+
+## Install with one command
+
+Run this on your **Debian/Ubuntu Linux server** with systemd and `curl` available:
 
 ```bash
 curl -fL --retry 3 -o wgsimple-install.run https://github.com/barkinarga/Wireguard-Simple/releases/latest/download/wgsimple-install.run && sudo bash wgsimple-install.run
 ```
 
-Kurucu amd64/arm64 mimarisini seçer, gömülü paketin SHA-256 bütünlüğünü doğrular, eksik araçları kurar ve paneli başlatır. Panel loopback adresinde kalır; SSH tüneliyle açılır. NAT/forwarding/DNS/güvenlik duvarı ve mevcut VPN arayüzleri değiştirilmez. Yeni kurulumda geçmiş/log/metrikler kapalıdır. `curl` yoksa kılavuzdaki dosya aktarımı yolunu kullanın.
-
-## Yerel demoyu açma
-
-Proje klasöründeki PowerShell'den:
-
-```powershell
-.\start-demo.ps1
-```
-
-Tarayıcı adresi: **http://127.0.0.1:8787**. Durdurmak için Ctrl+C.
-
-- WireGuard kurmaz, başlatmaz veya çağırmaz.
-- DNS, ağ yönlendirmesi, güvenlik duvarı ve Windows servisleri değişmez.
-- İstemciler, adresler ve trafik açıkça işaretlenmiş örnek verilerdir.
-- Demo yalnızca loopback adresinde dinler. Ağ üzerinden yayınlanması reddedilir.
-- Demo kayıtları yalnızca `.data/demo/` içinde tutulur. Demo ve canlı mod aynı veri klasörünü kullanamaz.
-- Özel anahtarlar demo için yerel olarak üretilir; herhangi bir gerçek sunucuya erişim sağlamaz.
-
-## Bu sürümde çalışanlar
-
-- Genel bakış, toplam trafik grafiği, istemci durumu ve uygulama kaynak göstergeleri.
-- İstemci oluşturma, otomatik IP dağıtma, bağımsız X25519 anahtar çifti ve preshared key.
-- Yapılandırma indirme ve yerel QR üretimi; haricî QR servisi kullanılmaz.
-- İstemci erişimini duraklatma/etkinleştirme, silme ve bitiş tarihi.
-- Sunucu endpoint, DNS, MTU, alt ağ, port ve istemci AllowedIPs ayarları.
-- Sunucu `.conf` dosyasından kontrollü içe aktarma. Hook ve çalıştırılabilir yönergeler reddedilir.
-- Ortak bir toplayıcı üzerinden canlı izleme. Sayaç sıfırlanması negatif veya devasa hız üretmez.
-- Son 120 trafik örneği ve son 200 yönetim olayı için sınırlı RAM tamponu.
-- İsteğe bağlı kalıcı trafik ve yönetim geçmişi; geçmiş temizleme, süre ve disk bütçesi.
-- İsteğe bağlı Prometheus uç noktası ve yalnızca metrik okumaya yetkili Bearer anahtarı.
-- Canlı modda ilk kurulum anahtarı, Argon2id parolası, süreli oturum, CSRF/Origin/Host kontrolleri ve giriş denemesi sınırı.
-- Mobil menü, duyarlı düzen, klavye ile gezinme ve istemci araması için `/` kısayolu.
-
-## Hafif varsayılanlar
-
-| Tercih | Varsayılan |
-| --- | --- |
-| Canlı izleme | Açık, son örnekler RAM'de |
-| Kalıcı trafik geçmişi | Kapalı |
-| Kalıcı yönetim geçmişi | Kapalı |
-| Prometheus uç noktası | Kapalı |
-| Geçmiş açıkken saklama üst sınırı | 7 gün |
-| Toplam geçmiş dosyası bütçesi | 32 MB |
-| Geçmiş örnekleme aralığı | 60 saniye |
-| Panel görüntülenirken toplama | Yaklaşık 3 saniye |
-| Panel kullanılmıyorken toplama | Yaklaşık 30 saniye |
-
-`control.db` ayarları ve istemci anahtarlarını taşır; `telemetry.db` yalnızca kayıt gerektiğinde oluşturulur. Geçmişe özel anahtar veya parola yazılmaz. Yapılandırma dosyaları ve SQLite kayıtları Linux'ta `0600`, veri klasörü `0700` izinleriyle korunur. Diskte şifreleme bu sürümde ayrıca sağlanmaz; sunucu/disk erişiminin güvenliği sistem yöneticisine aittir.
-
-Geçmiş için 16–512 MB bütçe, 1–30 gün ve 30–3600 saniye aralık seçilebilir. Süre bir **üst sınırdır**: disk bütçesine önce ulaşılırsa daha eski kayıtlar daha erken silinir. SQLite DELETE journal kullanılır; bütçenin yarısı veritabanına, kalan kısmı geçici işlem günlüğü ve paya ayrılır. Sorgu geçici alanı RAM'dedir. SQLite cache'leri sınırlıdır; geçmiş dosyası silinince yapılandırma verisi korunur.
-
-Boş alan 64 MB altına düşerse kalıcı kayıt duraklatılır. Kayıt hataları panelde gösterilir ve WireGuard trafiğini durdurmaz. Kayıtları kapatmak var olan geçmişi hemen silmez; temizleme işlevi veya süre temizliği kullanılabilir. Sistem yöneticisinin kendi yedekleri ve işletim sisteminin servis yöneticisi günlükleri uygulamanın geçmiş bütçesine dahil değildir. Verilen systemd birimi uygulama stdout/stderr akışını kalıcı günlüğe yazmaz.
-
-Uygulama belleği göstergesi Go çalışma zamanının ayırdığı bellektir (`runtime.MemStats.Sys`); işletim sistemi RSS ölçümü veya tüm sunucunun bellek tüketimi değildir. Linux sistem belleği ve CPU göstergeleri `/proc` üzerinden ayrıca okunur. Paket boyutu, boşta tüketim ve yoğun kullanım birbirinden ayrı ölçülmelidir.
-
-## Linux sunucusunda çalıştırma
-
-Bu komutlar **hedef Debian/Ubuntu test sunucusu** içindir. Windows bilgisayarında çalıştırılmaz.
-
-Ön koşullar: WireGuard destekli Linux çekirdeği, `wireguard-tools`, `iproute2` ve systemd. Örnek dağıtım kurulumu:
-
-```bash
-sudo apt update
-sudo apt install wireguard-tools iproute2
-```
-
-Doğru mimariye ait `bin/wgsimple-linux-amd64` veya `bin/wgsimple-linux-arm64` dosyasını sunucuya kopyalayın. Paketi ve yönetim servisini kurun:
-
-```bash
-sudo bash scripts/install-linux.sh ./bin/wgsimple-linux-amd64
-sudo systemctl enable --now wgsimple.service
-```
-
-Kurucu eksik paketleri tamamlar ve yönetim servisini başlatır. DNS, NAT, IP forwarding veya güvenlik duvarı değiştirmez; WireGuard arayüzünü başlatmaz/durdurmaz. Yönetim paneli yalnızca `127.0.0.1:8787` üzerinde dinler. Eski `install-linux.sh` adı uyumluluk girişidir; yanında `install.sh` bulunmalıdır.
-
-Kendi bilgisayarınızdan SSH tüneli açın:
+The installer selects **amd64 or arm64**, checks the embedded payload's SHA-256, installs missing system tools, and starts the management service. The panel listens on `127.0.0.1:8787`; reach it through an SSH tunnel:
 
 ```bash
 ssh -L 8787:127.0.0.1:8787 user@server
 ```
 
-Tarayıcıdan `http://127.0.0.1:8787` adresine girin. Sunucuda ilk kurulum anahtarını **yalnızca kendiniz okuyun**:
+Open **http://127.0.0.1:8787** on your computer. On the server, read the first-run token and use it to create your administrator account:
 
 ```bash
 sudo cat /var/lib/wgsimple/setup-token
 ```
 
-Kurulum ekranında bu anahtarı kullanarak yönetici hesabını oluşturun. Hesap açılınca anahtar dosyası kaldırılır. Parola değiştirmek mevcut oturumları kapatır. Hazır veya ortak bir yönetici parolası bulunmaz.
+The installer sets up the panel and WireGuard tools. **VPN internet access also requires appropriate forwarding, NAT, and UDP firewall rules**, configured separately for your server. The installer does not change those rules, DNS, or existing VPN interfaces.
 
-### Yeni VPN veya mevcut VPN
+Full steps, upgrades, offline file transfer, and troubleshooting: **[English installation guide](INSTALL.md)** · **[Türkçe kurulum](KURULUM.md)**.
 
-Yeni sunucuda önce endpoint ve diğer ayarları panelden belirleyin. Canlı moddaki açık bir yönetim işlemi, mevcut olmayan `wg0` arayüzü için yönetilen `.conf` dosyasını üretip `wg-quick` ile arayüzü başlatabilir. Bu nedenle canlı mod yalnızca yönetilecek Linux sunucusunda çalıştırılır. Panelin kendisi ilk açılışta otomatik VPN değişikliği yapmaz.
+## Lightweight by default
 
-Mevcut arayüzde farklı bir sunucu anahtarı varsa uygulama değişiklik yapmayı reddeder. Önce uygun sunucu yapılandırmasını içe aktarın. İçe aktarma çalışan arayüze bağlanır; arayüzü yeniden başlatmaz. İstemci özel anahtarları sunucu `.conf` dosyasında bulunmadığı için içe aktarılan istemciler için yeni QR/yapılandırma üretilemez.
+Live information stays in bounded memory buffers. Persistent recording is opt-in.
 
-Peer ve port değişikliklerinde `wg syncconf` kullanılır. Çalışan arayüzün adres/MTU değişikliği bakım gerektirir ve bu sürümde panelden kesintisiz uygulanmaz. Hook içeren mevcut dosyalar otomatik yönetilmez; bu yönergelerin etkisi Linux yöneticisi tarafından ayrıca ele alınmalıdır.
+| Setting | Default |
+| --- | --- |
+| Live monitoring | On |
+| Traffic samples in memory | Last 120 samples |
+| Administrative events in memory | Last 200 events |
+| Persistent traffic history | Off |
+| Persistent administrative history | Off |
+| Prometheus endpoint | Off |
+| Retention when history is enabled | Up to 7 days |
+| History storage budget | 32 MB |
+| Persistent sampling interval | 60 seconds |
 
-İnternete çıkış veya başka ağlara yönlendirme için sunucudaki forwarding, NAT ve güvenlik duvarı politikası ayrıca hazırlanmalıdır. Panel bunu sessizce değiştirmez. Başarıyla oluşturulan yönetilen VPN'in reboot sonrası açılması, yapılandırma doğrulandıktan sonra sunucuda ayrıca etkinleştirilebilir:
+History settings allow 16–512 MB, 1–30 days, and 30–3600-second sampling. The storage budget can cause older records to expire before the retention period. Recording pauses below 64 MB of free disk space; recording errors do not stop WireGuard traffic.
 
-```bash
-sudo systemctl enable wg-quick@wg0.service
+`control.db` stores configuration and client keys. A separate `telemetry.db` is created only when persistent recording is needed. Turning recording off retains existing history until cleanup or explicit deletion. Operating system logs and administrator backups are outside this history budget. The supplied systemd unit does not persist the application's stdout/stderr.
+
+Release binaries are approximately **12 MB per architecture**; system packages are additional. The memory card reports Go runtime memory, not process RSS. Small-server resource consumption has not yet been benchmarked.
+
+## How it fits together
+
+```mermaid
+flowchart LR
+    Browser["Browser"] -->|"SSH tunnel / HTTPS"| App["Go application\nEmbedded web UI + API"]
+    App -->|"Management commands"| WG["Linux WireGuard"]
+    App --> Control[("Configuration + keys\ncontrol.db")]
+    App --> RAM["Bounded live buffers\nRAM"]
+    App -.->|"Only when enabled"| History[("History\ntelemetry.db")]
+    Clients["VPN clients"] <-->|"Encrypted VPN traffic"| WG
 ```
 
-Yönetim panelini kapatmak WireGuard arayüzünü kapatmaz. Peer bitiş tarihleri ve izleme ise panel servisi çalışırken denetlenir; servis kapalıyken bitiş tarihi zorla uygulanamaz. Bitiş tarihi kontrolünde normal koşullarda yaklaşık 30 saniyeye kadar gecikme olabilir.
+The Go application manages the VPN; VPN packets flow through Linux WireGuard. Stopping the panel leaves an existing WireGuard interface running, but monitoring and expiry enforcement require the panel service to run.
 
-### HTTPS ve metrikler
+## Try the Windows demo
 
-Genel ağda doğrudan HTTP dinlemek reddedilir. Doğrudan dış erişim için canlı mod, TLS dosyaları ve açıkça belirtilmiş HTTPS origin gerekir:
+From the project folder in PowerShell, with development dependencies installed:
 
-```bash
-wgsimple --mode live --data-dir /var/lib/wgsimple \
-  --listen 0.0.0.0:8787 \
-  --origin https://vpn.example.com:8787 \
-  --tls-cert /path/fullchain.pem --tls-key /path/privkey.pem
+```powershell
+.\start-demo.ps1
 ```
 
-HTTPS reverse proxy de loopback arkasında kullanılabilir: panelin `--origin` değeri dışarıdaki HTTPS adresi olmalı, proxy Host başlığını korumalıdır. Uygulama istemci IP'si için gelişigüzel `X-Forwarded-For` başlığına güvenmez. Tek proxy arkasında giriş sınırı proxy adresini paylaşır; proxy tarafında uygun ek sınırlar uygulanmalıdır.
+Visit **http://127.0.0.1:8787**. Stop with Ctrl+C. Demo mode uses synthetic data and only listens on loopback. It does not install or invoke WireGuard, or change Windows networking, DNS, firewall rules, or services. Demo files stay in `.data/demo/`, separate from live data.
 
-Prometheus tercihini açıp kaydettikten sonra panelden salt okunur erişim anahtarı oluşturun. Anahtar yalnızca oluşturulduğunda gösterilir, veritabanında SHA-256 özeti saklanır. Örnek scraper:
+## Build from source
 
-```yaml
-scrape_configs:
-  - job_name: wireguard-simple
-    scrape_interval: 30s
-    static_configs:
-      - targets: ['127.0.0.1:8787']
-    authorization:
-      type: Bearer
-      credentials_file: /secure/path/wgs-metrics-token
-```
-
-## İsteğe bağlı Docker yolu
-
-`Dockerfile` ve `compose.yaml` yalnızca hedef **Linux sunucusu** içindir. Son image Node.js veya Go derleyicisi taşımaz. Host ağ alanı kullanılır; bu nedenle mevcut VPN'in ömrü panel container'ına bağlı olmaz. Yönetim HTTP adresi yine loopback'tir. Yalnızca `NET_ADMIN` yetkisi verilir, container kök dosya sistemi salt okunurdur, container log yazımı kapalıdır ve belleği sınırlıdır.
-
-```bash
-sudo docker compose up -d --build
-sudo docker compose exec wgsimple cat /var/lib/wgsimple/setup-token
-```
-
-Bu yol ilk geliştirme ortamında Docker bulunmadığı için çalıştırılarak doğrulanmadı. Windows'ta Docker veya WireGuard kurulumu yapılmadı. Ana doğrulanan paketleme yolu tek dosyalık uygulamadır.
-
-## Derleme ve kontroller
-
-Geliştirme için Go 1.26+ ve Node.js gerekir. Bunlar hedef sunucuda gerekmez. İndirilen geliştirme araçları `.tools/` içinde ve paketlerden ayrıdır.
+Development requires **Go 1.26+ and Node.js**. CI currently uses Go 1.27.3 and Node.js 24. These build tools are not needed on the target server.
 
 ```powershell
 npm.cmd ci
 .\scripts\build.ps1 -All
 ```
 
-`-All`, iki Linux mimarisini ve `release/wgsimple-install.run` evrensel kurucusunu da hazırlar. Linux uygulamaları zaten derlenmişse yalnızca kurulum paketini yenilemek için `npm run package:linux`, paket kontrolleri için `npm run test:package` kullanılabilir.
-
-Linux üzerinde:
-
-```bash
-sh scripts/build.sh
-```
-
-Kontroller:
+This produces Windows and Linux binaries plus `release/wgsimple-install.run`, containing both Linux architectures. On Linux, use `npm ci` followed by `sh scripts/build.sh` to build the application.
 
 ```bash
 npm run check
@@ -180,18 +129,20 @@ go test ./... -count=1
 go vet ./...
 ```
 
-Paketlerde haricî web fontu, CDN, analitik izleyici veya çalışma zamanında npm bağımlılığı yoktur. UI varlıkları `internal/web/dist/` içine derlenir ve Go `embed` ile taşınır. `bin/` çıktıları ve `.tools/` geliştirme önbelleği Git kapsamı dışında tutulur.
+Linux CI also runs Go tests with the race detector, isolated installer scenarios, and package-integrity tests. Installer tests use mock package and service managers; they do not establish real VPN connectivity.
 
-## Mevcut sınırlar
+## Current scope and limits
 
-- Bir uygulama/veri klasörü tek WireGuard arayüzünü yönetir. Otomatik IP dağıtımı IPv4 içindir; kapsamlı IPv6 ve çok sunucu yönetimi henüz eklenmedi.
-- Trafik geçmişinde grafik son 360 kalıcı örneği gösterir. İstemci bazlı sınırlı sayaç örnekleri saklanır; ayrıntılı geçmiş sorgulama ekranı sonraki geliştirme alanıdır.
-- WireGuard kesin bağlandı/ayrıldı oturum olayları veya ziyaret edilen siteler vermez. Aktiflik son handshake'e dayanan tahmindir; istemcinin boşta olması kopmuş olduğu anlamına gelmez.
-- Sayaçlar WireGuard arayüzü yeniden oluşturulunca sıfırlanabilir. Kalıcı örnekleme araları arasında gerçekleşen reset öncesi trafik tam olarak geri çıkarılamaz. Bu sürüm faturalandırma ölçeri değildir.
-- Paket/akış yakalama, ziyaret geçmişi, OIDC, 2FA, rol yönetimi ve bildirim entegrasyonları henüz uygulanmadı.
-- Canlı adaptör Linux ağ yönetimi yetkisi gerektirir. İlk systemd birimi root UID ile, `CAP_NET_ADMIN` sınırı ve dosya sistemi kısıtlarıyla çalışır; ayrı yetkili yardımcı sürece ayırma sonraki sertleştirme alanıdır.
-- Linux çekirdeğiyle gerçek bağlantı, NAT, yeniden başlama ve düşük disk testleri hedef test sunucusunda tamamlanmalıdır.
+- One WireGuard interface per application/data directory; automatic address allocation is IPv4. Multi-server management and comprehensive IPv6 support are not implemented.
+- Activity is inferred from recent handshakes. WireGuard does not provide exact login/logout events or browsing history. There is no packet capture or visited-site logging.
+- Counters can reset when an interface is recreated. History is operational monitoring, not a billing meter; the chart shows up to 360 stored samples.
+- Imported server files do not contain client private keys, so imported clients cannot receive regenerated configurations or QR codes from those files alone.
+- Live interface address/MTU changes require maintenance. Existing executable configuration hooks are not automatically managed.
+- The initial Linux service runs as root with capability and filesystem restrictions. Configuration and keys are protected by file permissions, without application-level disk encryption.
+- OIDC, two-factor authentication, roles, and notification integrations are not implemented. The optional Docker configuration has not been runtime-tested.
 
-Araştırma ve mimari kararlar: [docs/architecture.md](docs/architecture.md).
+More implementation notes (Turkish): [Architecture](docs/architecture.md) · [Validation](docs/validation.md) · [Installer validation](docs/installation-validation.md).
 
-Kurucu kontrolleri: [docs/installation-validation.md](docs/installation-validation.md). Proje lisansı: [LICENSE](LICENSE); bağımlılık bildirimleri: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+## License
+
+[GNU AGPL-3.0](LICENSE). Third-party dependency licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

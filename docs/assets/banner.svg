@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="340" viewBox="0 0 1200 340" role="img" aria-labelledby="title desc">
+  <title id="title">WireGuard Simple</title>
+  <desc id="desc">Clear control. Lightweight by default. One Go application, live monitoring, optional history.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#163d2b"/><stop offset="1" stop-color="#09251b"/></linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#c7dfc9" stroke-opacity=".055"/></pattern>
+  </defs>
+  <rect width="1200" height="340" rx="24" fill="url(#bg)"/>
+  <rect width="1200" height="340" rx="24" fill="url(#grid)"/>
+  <circle cx="1120" cy="30" r="200" fill="#bddd79" fill-opacity=".04"/>
+  <circle cx="1120" cy="30" r="138" fill="none" stroke="#bddd79" stroke-opacity=".15"/>
+  <rect x="58" y="59" width="66" height="66" rx="19" fill="#c5e891"/>
+  <path d="M72 78l9 29 10-19 10 19 9-29" fill="none" stroke="#173b2b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="144" y="101" font-family="Segoe UI,Arial,sans-serif" font-size="36" font-weight="700" fill="#f4f6ec">WireGuard Simple</text>
+  <text x="58" y="191" font-family="Segoe UI,Arial,sans-serif" font-size="45" font-weight="700" fill="#f4f6ec">Clear control. Lightweight by default.</text>
+  <text x="60" y="233" font-family="Segoe UI,Arial,sans-serif" font-size="22" fill="#b5cab9">One Go application. Live monitoring. Optional history.</text>
+  <rect x="60" y="271" width="144" height="31" rx="15" fill="#c5e891" fill-opacity=".13"/>
+  <circle cx="78" cy="287" r="4" fill="#c5e891"/>
+  <text x="91" y="292" font-family="Segoe UI,Arial,sans-serif" font-size="14" fill="#c5e891">DEBIAN / UBUNTU</text>
+  <text x="225" y="292" font-family="Segoe UI,Arial,sans-serif" font-size="14" fill="#b5cab9">amd64 + arm64</text>
+</svg>

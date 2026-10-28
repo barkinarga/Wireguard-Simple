@@ -1,5 +1,7 @@
 # WireGuard Simple — basit kurulum
 
+[English installation guide](INSTALL.md) · [Türkçe README](README.tr.md)
+
 Bu adımlar **Debian/Ubuntu Linux sunucusu** içindir. Windows bilgisayarına WireGuard kurmayın. Kurucu Windows ve WSL üzerinde çalışmayı reddeder.
 
 ## 1. Tek dosyayı sunucuya gönder

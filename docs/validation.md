@@ -58,7 +58,6 @@ Bu boyutlar geliştirme araçlarını veya Linux'un WireGuard/iproute2 paketleri
 - NAT/forwarding/güvenlik duvarı ve sistem yeniden başlatma entegrasyonu.
 - Gerçek düşük disk, büyük istemci sayısı ve uzun süreli yük altında kaynak tüketimi.
 - Docker/Compose çalıştırması; ortamda Docker bulunmadığı için örnek dosyalar runtime testi görmedi.
-- Go race detector: bu Windows ortamında C derleyicisi bulunmadığından çalıştırılmadı. Eşzamanlılık senaryosu normal Go testleriyle denetlendi.
+- Go race detector bu Windows ortamında C derleyicisi bulunmadığından yerelde çalıştırılmadı; ilk sürümün GitHub Linux CI çalışmasında başarıyla geçti. Eşzamanlılık senaryosu yerelde normal Go testleriyle de denetlendi.
 
-Ekran görüntüleri yalnızca yerel çalışma alanında tutulur; herkese açık repoya eklenmez. Geçici önizleme sunucusu doğrulamadan sonra kapatılır; demoyu `start-demo.ps1` ile yeniden açabilirsiniz.
-
+Kullanıcının görsel repo tanıtımı isteği üzerine, yalnızca uygulamanın sentetik demo verilerini gösteren `overview.png` ve `mobile.png` ekran görüntüleri README için seçilmiştir. Gerçek istemci, sunucu veya anahtar bilgisi içermezler; ekran değerleri benchmark sonucu değildir. Diğer ekran görüntüleri Git kapsamı dışındadır. Geçici önizleme sunucusu doğrulamadan sonra kapatılır; demoyu `start-demo.ps1` ile yeniden açabilirsiniz.
