@@ -18,6 +18,22 @@ The compiled interface is embedded in the Go application. Your server needs **on
 
 **Early development release:** builds, automated tests, and installer checks run in Linux CI. The interface startup fix was tested on an Ubuntu 26.04.1 ARM64 KVM server, including a real WireGuard handshake, internet ping, DNS and HTTPS from a temporary VPN client namespace on the same host. External-device connectivity, full-machine reboot recovery, SELinux enforcement, and resource use across target distributions still need end-to-end validation.
 
+## Interface
+
+V2 is the default interface for every installation. It keeps the green identity
+with simpler navigation, clearer controls, and more readable text on desktop
+and mobile. Secondary interface text uses a minimum 12px size; the server
+information card uses 12–16px text. The original visual design remains available
+at `/?design=v1`.
+
+The sidebar is the main navigation point. Repeated settings shortcuts, workspace
+placeholders, slogan cards, and the activity explanation strip have been removed.
+Existing client management, monitoring, recording, and access controls are kept.
+
+The executable defaults to live Linux operation. Demo mode requires an explicit
+`--mode demo`; Windows previews still use simulated data and never configure VPN
+networking, even though the interface no longer displays demo banners.
+
 ## Languages
 
 The application starts in **English** and includes **10 embedded interface languages**: English, Turkish, German, French, Spanish, Italian, Portuguese, Russian, Arabic, and Simplified Chinese. Change language in the top bar or before sign-in. Your choice is remembered in this browser, and unsaved form fields are preserved when switching.
@@ -30,7 +46,7 @@ Repository documentation is maintained in **English**. [Translation maintenance]
 
 ![Desktop overview showing client status, traffic, and server health](docs/screenshots/overview.png)
 
-*Desktop demo. All displayed clients, addresses, traffic, and server details are synthetic sample data. These screenshots are not performance benchmarks.*
+*V2 desktop preview. All displayed clients, addresses, traffic, and server details are synthetic sample data. These screenshots are not performance benchmarks.*
 
 <details>
 <summary>Mobile preview</summary>

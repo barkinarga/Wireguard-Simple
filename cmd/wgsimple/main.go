@@ -16,10 +16,10 @@ import (
 	"wireguard-simple/internal/web"
 )
 
-var version = "0.3.3-dev"
+var version = "0.4.0-dev"
 
 func run() error {
-	mode := flag.String("mode", "demo", "demo (no network changes) or live (Linux only)")
+	mode := flag.String("mode", "live", "demo (no network changes) or live (Linux only)")
 	listen := flag.String("listen", "127.0.0.1:8787", "HTTP listen address")
 	dir := flag.String("data-dir", "", "private application data directory (demo: .data/demo, live: /var/lib/wgsimple)")
 	iface := flag.String("interface", "wg0", "managed WireGuard interface")

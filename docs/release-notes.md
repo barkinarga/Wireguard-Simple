@@ -1,11 +1,29 @@
-# WireGuard Simple v0.3.3
+# WireGuard Simple v0.4.0
 
-Fresh installations now prepare IPv4 VPN internet access instead of installing only the panel. A dedicated root bootstrap starts the managed WireGuard interface, enables IPv4 forwarding and installs subnet/interface-scoped NAT through the detected IPv4 uplink, including after boot. The panel keeps its existing service restrictions.
+V2 is now the default interface for every installation and upgrade. The existing
+VPN management features and configuration are preserved.
 
-- Existing keys, administrator credentials and client expiry settings are preserved. New clients remain enabled by default; an elapsed expiry intentionally disables a client.
-- Existing installations retain their networking. Use `--configure-network` to opt in, or `--no-network` for administrator-managed setup.
-- Active firewalld/UFW, custom filtering, multiple uplinks and conflicting configurations stop automatic preparation with an actionable error. Existing firewall rules are never flushed.
-- Provider firewall UDP access and public endpoint configuration remain explicit requirements.
-- Added regression checks for NAT scope, firewall conflicts, default-route ambiguity and installer network-bootstrap failures.
+- Simplified navigation around the sidebar; removed workspace placeholders,
+  slogan cards, theme-preview controls, and repeated settings shortcuts.
+- Clearer client tables, controls, forms, and dialogs. Secondary text is at least
+  12px in V2, including the server information card and public keys.
+- Responsive desktop/mobile layouts, keyboard focus, reduced-motion support,
+  and all ten existing interface languages are retained.
+- Removed the activity retention explanation strip and demo banner/footer text.
+- The executable now defaults to live Linux mode. Explicit `--mode demo` remains
+  available for development and Windows previews; removing labels does not
+  turn simulated data into a real VPN connection.
+- The original visual design remains available at `/?design=v1`.
 
-Ubuntu 26 ARM64 testing includes real WireGuard traffic, internet ping, DNS and HTTPS through a temporary same-host client namespace. External-device connectivity, complete machine reboot recovery and all-distribution firewall behavior are not yet fully validated.
+## Upgrade
+
+Back up the existing installation, then run the new `wgsimple-install.run` on the
+Linux server. Administrator credentials, client keys, expiry dates, monitoring
+preferences, and networking remain under the existing upgrade behavior. See
+[INSTALL.md](INSTALL.md) for installation, backup, recovery, and network options.
+
+The V2 interface was checked on desktop and mobile. An ARM64 build containing
+these UI changes was installed on an existing Ubuntu test server in live mode;
+service health passed and the WireGuard peer set and configuration were verified
+unchanged. This update does not add new cross-distribution or external-device
+connectivity validation beyond the existing platform notes.
