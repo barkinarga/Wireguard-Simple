@@ -1,0 +1,10 @@
+.tools
+.data
+.test-data
+.git
+node_modules
+bin
+release
+docs
+*.db
+*.log

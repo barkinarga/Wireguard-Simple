@@ -1,0 +1,29 @@
+# Target Linux server only. Do not run this on the Windows development PC.
+services:
+  wgsimple:
+    build: .
+    restart: unless-stopped
+    network_mode: host
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    mem_limit: 192m
+    pids_limit: 64
+    tmpfs:
+      - /tmp:size=4m,mode=1777
+    volumes:
+      - state:/var/lib/wgsimple
+      - /etc/wireguard:/etc/wireguard
+    logging:
+      driver: none
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "3", "-O", "/dev/null", "http://127.0.0.1:8787/healthz"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+volumes:
+  state:

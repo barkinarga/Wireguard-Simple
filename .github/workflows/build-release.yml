@@ -1,0 +1,122 @@
+name: Build, test and release
+
+on:
+  push:
+    branches: [readme, main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Optional version to publish, for example v0.1.1'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.3'
+          cache: true
+      - name: Determine version
+        id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.release_version }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        shell: bash
+        run: |
+          tag="$REQUESTED_VERSION"
+          headline="${COMMIT_MESSAGE%%$'\n'*}"
+          if [[ -z $tag && $headline == 'release: v'* ]]; then tag="${headline#release: }"; fi
+          if [[ -n $tag && ! $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            printf '%s\n' 'Invalid release version' >&2; exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          version="${tag#v}"
+          if [[ -z $version ]]; then version=0.1.0-dev; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Build embedded interface
+        run: |
+          npm ci
+          npm run check
+          npm run build
+      - name: Backend and concurrency tests
+        run: |
+          go test -race ./... -count=1
+          go vet ./...
+      - name: Cross-compile applications
+        env:
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          mkdir -p bin
+          for arch in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -ldflags="-s -w -X main.version=$APP_VERSION" -o "bin/wgsimple-linux-$arch" ./cmd/wgsimple
+          done
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.version=$APP_VERSION" -o bin/wgsimple.exe ./cmd/wgsimple
+      - name: Installer tests with isolated files and mock services
+        run: |
+          bash -n scripts/install.sh
+          bash -n scripts/install-linux.sh
+          bash tests/install-test.sh
+      - name: Package and verify installer
+        run: |
+          npm run package:linux
+          npm run test:package
+          bash release/wgsimple-install.run --help
+          cp KURULUM.md LICENSE THIRD_PARTY_NOTICES.md release/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux-installer
+          path: release/
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: github.event_name != 'pull_request' && needs.build.outputs.release_tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: linux-installer
+          path: release/
+      - name: Publish verified release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.release_tag }}
+        shell: bash
+        run: |
+          if gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' > .release-state 2>/dev/null; then
+            if [[ $(cat .release-state) == false ]]; then
+              printf '%s\n' 'This version is already published; existing assets are preserved.'
+              exit 0
+            fi
+          else
+            gh release create "$RELEASE_TAG" --draft --target "$GITHUB_SHA" --title "WireGuard Simple $RELEASE_TAG" --notes-file docs/release-notes.md
+          fi
+          gh release upload "$RELEASE_TAG" release/wgsimple-install.run release/SHA256SUMS release/KURULUM.md release/LICENSE release/THIRD_PARTY_NOTICES.md --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --latest
