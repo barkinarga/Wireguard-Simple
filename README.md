@@ -16,7 +16,7 @@ A lightweight WireGuard management console for Debian, Ubuntu, RHEL, CentOS Stre
 
 The compiled interface is embedded in the Go application. Your server needs **one application, WireGuard tools, and systemd**. No Node.js, separate frontend server, or database service is required at runtime.
 
-**Early development release:** builds, automated tests, and installer checks run in Linux CI. Real WireGuard connectivity, routing, reboot recovery, SELinux enforcement, and resource use across target distributions still need end-to-end validation.
+**Early development release:** builds, automated tests, and installer checks run in Linux CI. The interface startup fix was tested on an Ubuntu 26.04.1 ARM64 KVM server, including a real WireGuard handshake and tunnel ping with a temporary client namespace on the same host. External client connectivity, internet routing, reboot recovery, SELinux enforcement, and resource use across target distributions still need end-to-end validation.
 
 ## Languages
 
@@ -161,6 +161,7 @@ Linux CI also runs Go tests with the race detector, isolated installer scenarios
 - One WireGuard interface per application/data directory; automatic address allocation is IPv4. Multi-server management and comprehensive IPv6 support are not implemented.
 - Activity is inferred from recent handshakes. WireGuard does not provide exact login/logout events or browsing history. There is no packet capture or visited-site logging.
 - Counters can reset when an interface is recreated. History is operational monitoring, not a billing meter; the chart shows up to 360 stored samples.
+- Fresh startup directly configures the interface with `ip` and `wg`, preserving service restrictions on systems with confined `wg-quick` helpers. For routed client subnets outside the server VPN network, start the interface externally and import its running configuration.
 - Imported server files do not contain client private keys, so imported clients cannot receive regenerated configurations or QR codes from those files alone.
 - Live interface address/MTU changes require maintenance. Existing executable configuration hooks are not automatically managed.
 - The initial Linux service runs as root with capability and filesystem restrictions. Configuration and keys are protected by file permissions, without application-level disk encryption.

@@ -54,7 +54,7 @@ In **Settings → Endpoint**, enter your server's public IP address or domain. U
 
 Live management actions can create or update the selected WireGuard interface. For an existing VPN, import its matching server configuration before managing clients. Server files do not contain client private keys, so imported clients cannot receive regenerated client configurations from that import alone.
 
-Real Linux VPN connectivity, routing, and reboot recovery have not yet completed end-to-end validation for this early release. Test on a dedicated Linux server before relying on it.
+Ubuntu 26.04.1 ARM64 KVM startup, a real WireGuard handshake, and a tunnel ping with a temporary client namespace on the same host have been verified. External-device connectivity, internet routing, and reboot recovery have not yet completed end-to-end validation for this early release. Test on a dedicated Linux server before relying on it.
 
 ## Update
 
@@ -104,3 +104,7 @@ sudo systemctl restart wgsimple.service
 ```
 
 For TLS instead of unencrypted public HTTP, omit `--allow-http` and supply `--tls-cert`, `--tls-key`, and an explicit HTTPS `--origin`. That canonical origin controls which address the browser must use.
+
+## Ubuntu 26 startup compatibility
+
+Version 0.3.2 starts a new managed interface using direct `ip` and `wg` commands. This avoids a reproduced conflict between the distribution wg-quick AppArmor child-profile transitions and NoNewPrivileges. AppArmor and the service restrictions remain enabled. Existing interfaces still use `wg syncconf` for updates. The generated wg-quick-compatible configuration is retained for external startup after reboot. Fresh interfaces with client subnets outside the server VPN network require external setup and import; the panel does not silently omit their routes.

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -194,15 +195,13 @@ func (l *LiveEngine) Apply(ctx context.Context, s Server, peers []Peer) error {
 	if existsErr == nil {
 		_, err = command(ctx, "wg", []string{"syncconf", s.Interface, "/dev/stdin"}, serverConfig(s, peers, false))
 	} else {
-		_, err = command(ctx, "wg-quick", []string{"up", path}, "")
+		err = startManagedInterface(ctx, s, peers, command)
 	}
 	if err != nil {
 		cleanupCtx := context.WithoutCancel(ctx)
 		var rollbackErr error
 		if existsErr == nil {
 			_, rollbackErr = command(cleanupCtx, "wg", []string{"syncconf", s.Interface, "/dev/stdin"}, string(runtimeBackup))
-		} else if key, e := command(cleanupCtx, "wg", []string{"show", s.Interface, "public-key"}, ""); e == nil && strings.TrimSpace(string(key)) == s.PublicKey {
-			_, rollbackErr = command(cleanupCtx, "wg-quick", []string{"down", path}, "")
 		}
 		var fileErr error
 		if readErr == nil {
@@ -214,6 +213,47 @@ func (l *LiveEngine) Apply(ctx context.Context, s Server, peers []Peer) error {
 			return errors.New("WireGuard operation and rollback failed; check the interface from the Linux console")
 		}
 		return err
+	}
+	return nil
+}
+
+// Invoke each tool directly: wg-quick's nested AppArmor profile transitions can
+// fail under NoNewPrivileges on Ubuntu. Keep the service's protections intact.
+func startManagedInterface(ctx context.Context, s Server, peers []Peer, run func(context.Context, string, []string, string) ([]byte, error)) error {
+	prefix, err := netip.ParsePrefix(s.Address)
+	if err != nil {
+		return err
+	}
+	for _, peer := range peers {
+		if !peer.Enabled {
+			continue
+		}
+		for _, raw := range splitCIDRs(peer.Address) {
+			p, e := netip.ParsePrefix(raw)
+			if e != nil || p.Bits() < prefix.Bits() || !prefix.Contains(p.Addr()) {
+				return errors.New("Start interfaces with routed client subnets externally, then import the running configuration")
+			}
+		}
+	}
+	if _, err := run(ctx, "ip", []string{"link", "add", "dev", s.Interface, "type", "wireguard"}, ""); err != nil {
+		return err
+	}
+	steps := []struct {
+		name  string
+		args  []string
+		input string
+	}{
+		{"wg", []string{"setconf", s.Interface, "/dev/stdin"}, serverConfig(s, peers, false)},
+		{"ip", []string{"address", "add", s.Address, "dev", s.Interface}, ""},
+		{"ip", []string{"link", "set", "mtu", strconv.Itoa(s.MTU), "up", "dev", s.Interface}, ""},
+	}
+	for _, step := range steps {
+		if _, err := run(ctx, step.name, step.args, step.input); err != nil {
+			if _, cleanupErr := run(context.WithoutCancel(ctx), "ip", []string{"link", "delete", "dev", s.Interface}, ""); cleanupErr != nil {
+				return fmt.Errorf("%w; new interface cleanup failed; check the interface from the Linux console", err)
+			}
+			return err
+		}
 	}
 	return nil
 }
