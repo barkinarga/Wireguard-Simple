@@ -3,7 +3,6 @@
 </p>
 
 <p align="center">
-  <strong>English</strong> · <a href="README.tr.md">Türkçe</a><br>
   <a href="INSTALL.md">Installation guide</a> · <a href="https://github.com/barkinarga/Wireguard-Simple/releases/latest">Download</a> · <a href="#preview">Preview</a>
 </p>
 
@@ -25,7 +24,7 @@ The application starts in **English** and includes **10 embedded interface langu
 
 Arabic includes a right-to-left layout. Dates, numbers, and relative times follow the selected language. Common validation messages and administrative events are translated; low-level WireGuard/OS diagnostics remain in English. Client names, keys, and configurations are never translated. No external translation service is used.
 
-Repository documentation is maintained in **English and Turkish**. [Translation maintenance](docs/localization.md).
+Repository documentation is maintained in **English**. [Translation maintenance](docs/localization.md).
 
 ## Preview
 
@@ -72,7 +71,7 @@ sudo cat /var/lib/wgsimple/setup-token
 
 The installer sets up the panel and WireGuard tools. **VPN internet access also requires appropriate forwarding, NAT, and UDP firewall rules**, configured separately for your server. The installer does not change those rules, DNS, or existing VPN interfaces.
 
-Full steps, upgrades, offline file transfer, and troubleshooting: **[English installation guide](INSTALL.md)** · **[Türkçe kurulum](KURULUM.md)**.
+Full steps, upgrades, offline file transfer, and troubleshooting: **[Installation guide](INSTALL.md)**.
 
 ## Linux distributions
 
@@ -160,8 +159,6 @@ Linux CI also runs Go tests with the race detector, isolated installer scenarios
 - Live interface address/MTU changes require maintenance. Existing executable configuration hooks are not automatically managed.
 - The initial Linux service runs as root with capability and filesystem restrictions. Configuration and keys are protected by file permissions, without application-level disk encryption.
 - OIDC, two-factor authentication, roles, and notification integrations are not implemented. The optional Docker configuration has not been runtime-tested.
-
-More implementation notes (Turkish): [Architecture](docs/architecture.md) · [Validation](docs/validation.md) · [Installer validation](docs/installation-validation.md).
 
 ## License
 

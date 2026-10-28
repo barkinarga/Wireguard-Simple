@@ -70,7 +70,6 @@ export async function buildInstaller() {
     ['install.sh', 'scripts/install.sh', 0o700],
     ['wgsimple-amd64', 'bin/wgsimple-linux-amd64', 0o700],
     ['wgsimple-arm64', 'bin/wgsimple-linux-arm64', 0o700],
-    ['KURULUM.md', 'KURULUM.md', 0o600],
     ['INSTALL.md', 'INSTALL.md', 0o600],
     ['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.md', 0o600],
     ['LICENSE', 'LICENSE', 0o600],

@@ -12,10 +12,7 @@ On the target Linux server:
 curl -fL --retry 3 -o wgsimple-install.run https://github.com/barkinarga/Wireguard-Simple/releases/latest/download/wgsimple-install.run && sudo bash wgsimple-install.run
 ```
 
-[English installation guide](https://github.com/barkinarga/Wireguard-Simple/blob/readme/INSTALL.md) · [Türkçe kurulum](https://github.com/barkinarga/Wireguard-Simple/blob/readme/KURULUM.md) · [Platform requirements](https://github.com/barkinarga/Wireguard-Simple/blob/readme/docs/platforms.md)
+[Installation guide](https://github.com/barkinarga/Wireguard-Simple/blob/readme/INSTALL.md) · [Platform requirements](https://github.com/barkinarga/Wireguard-Simple/blob/readme/docs/platforms.md)
 
 EL8 requires a prepared WireGuard-capable kernel/module. CentOS means Stream 9+; retired CentOS Linux and immutable ostree images are excluded. A systemd server on amd64/arm64 is required. Internet routing and UDP firewall policy must be configured separately. This remains an early development release: automated tests do not replace real VPN, SELinux, or reboot validation on every target distribution.
 
-### Türkçe
-
-Varsayılan arayüz İngilizce oldu; Türkçe dahil 10 dil, tarayıcıda hatırlanan dil seçimi ve Arapça için sağdan sola düzen eklendi. Kurucu artık Debian, Ubuntu, RHEL, CentOS Stream, AlmaLinux, Rocky Linux ve Fedora için doğru paket yolunu seçiyor. EL8'de uygun WireGuard çekirdeği/modülü önceden gerekebilir. Ek depo açılmaz; SELinux/firewalld kapatılmaz. Kalıcı kayıtlar yeni kurulumda kapalı kalır. Gerçek VPN bağlantısı ve dağıtım başına üretim doğrulaması henüz tamamlanmadı.

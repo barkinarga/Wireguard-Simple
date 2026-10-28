@@ -19,7 +19,7 @@ All dictionaries are bundled into the compiled interface, embedded in the Go bin
 
 `ui/i18n.ts` selects the dictionary and controls the document's language/direction. `ui/locales/en.json` supplies typed English message identifiers; each other dictionary contains the same identifiers and interpolation fields. A missing translation falls back to English. `server-messages.json` maps legacy Turkish server messages and parameterized events to their canonical English identifiers, so old administrative history remains readable in the selected language. Interpolated user data is escaped at the HTML rendering boundary.
 
-Common validation errors and administrative events are localized. Low-level operating system, configuration-parser and WireGuard diagnostics retain English technical detail. Installer terminal output is English. Repository-facing prose remains English and Turkish.
+Common validation errors and administrative events are localized. Low-level operating system, configuration-parser and WireGuard diagnostics retain English technical detail. Installer terminal output and repository documentation are English.
 
 When adding a language, add its JSON dictionary, register its native name, formatting locale and direction in `languages`, then run:
 

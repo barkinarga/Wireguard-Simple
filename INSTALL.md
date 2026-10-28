@@ -1,6 +1,6 @@
 # Install WireGuard Simple
 
-[English README](README.md) · [Türkçe kurulum](KURULUM.md)
+[README](README.md)
 
 These steps are for your **Debian, Ubuntu, RHEL, CentOS Stream, AlmaLinux, Rocky Linux, or Fedora server**, with systemd and a WireGuard-capable kernel, on amd64 or arm64. The installer refuses Windows and WSL. Your personal computer only needs SSH and a browser to access the panel. See the [distribution requirements](docs/platforms.md), especially for EL8 and immutable Fedora images.
 

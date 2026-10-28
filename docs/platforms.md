@@ -1,6 +1,6 @@
 # Linux platform support
 
-[English README](../README.md) · [Türkçe README](../README.tr.md) · [Install](../INSTALL.md)
+[README](../README.md) · [Install](../INSTALL.md)
 
 The same statically built Go application and embedded interface are packaged for **Linux amd64 and arm64**. The installer recognizes these distribution families:
 

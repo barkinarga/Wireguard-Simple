@@ -83,7 +83,7 @@ jobs:
           npm run package:linux
           npm run test:package
           bash release/wgsimple-install.run --help
-          cp INSTALL.md KURULUM.md LICENSE THIRD_PARTY_NOTICES.md release/
+          cp INSTALL.md LICENSE THIRD_PARTY_NOTICES.md release/
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: linux-installer
@@ -162,5 +162,5 @@ jobs:
           else
             gh release create "$RELEASE_TAG" --draft --target "$GITHUB_SHA" --title "WireGuard Simple $RELEASE_TAG" --notes-file docs/release-notes.md
           fi
-          gh release upload "$RELEASE_TAG" release/wgsimple-install.run release/SHA256SUMS release/INSTALL.md release/KURULUM.md release/LICENSE release/THIRD_PARTY_NOTICES.md --clobber
+          gh release upload "$RELEASE_TAG" release/wgsimple-install.run release/SHA256SUMS release/INSTALL.md release/LICENSE release/THIRD_PARTY_NOTICES.md --clobber
           gh release edit "$RELEASE_TAG" --draft=false --latest
