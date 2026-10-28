@@ -153,7 +153,7 @@ Wants=network-online.target
 Type=simple
 User=root
 UMask=0077
-ExecStart=$WGS_BIN_DIR/wgsimple --mode live --listen 127.0.0.1:8787 --data-dir $WGS_STATE_DIR --interface $WGS_INTERFACE
+ExecStart=$WGS_BIN_DIR/wgsimple --mode live --listen 0.0.0.0:8787 --allow-http --data-dir $WGS_STATE_DIR --interface $WGS_INTERFACE
 Restart=on-failure
 RestartSec=5
 WorkingDirectory=$WGS_STATE_DIR
@@ -257,7 +257,22 @@ wgs_install() {
   WGS_ROLLBACK=0
   wgs_message ''
   wgs_message 'WireGuard Simple installed.'
-  if ((WGS_START)); then wgs_message 'Panel ready: http://127.0.0.1:8787'; else wgs_message 'To start the panel: sudo systemctl enable --now wgsimple.service'; fi
+  if ((WGS_START)); then
+    wgs_message 'Panel ready: http://127.0.0.1:8787'
+    if ((WGS_UNIT_EXISTED == 0)); then
+      local panel_ip
+      panel_ip=$(ip -o -4 addr show scope global 2>/dev/null | awk '{split($4,a,"/"); print a[1]; exit}') || panel_ip=
+      if [[ $panel_ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        wgs_message "Panel ready: http://$panel_ip:8787"
+      else
+        wgs_message 'Server IP could not be detected. Use http://SERVER_IP:8787 or the SSH tunnel.'
+      fi
+      wgs_message 'Public HTTP is unencrypted. Use HTTPS on untrusted networks. Restrict access in Settings > Panel access.'
+      wgs_message 'External access requires TCP 8787 in your server/provider firewall. Behind NAT, use the mapped public IP; local address detection cannot discover it.'
+    else
+      wgs_message 'Existing listener and panel access policy preserved; check the service configuration for external access.'
+    fi
+  else wgs_message 'To start the panel: sudo systemctl enable --now wgsimple.service'; fi
   wgs_message 'From your own computer: ssh -L 8787:127.0.0.1:8787 USER@SERVER_IP'
   wgs_message "If a setup token exists, read it privately on the server: sudo cat $WGS_STATE_DIR/setup-token"
   wgs_message 'Client data is preserved; traffic history and log preferences are unchanged.'

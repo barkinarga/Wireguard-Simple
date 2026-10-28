@@ -16,7 +16,7 @@ import (
 	"wireguard-simple/internal/web"
 )
 
-var version = "0.2.0-dev"
+var version = "0.3.0-dev"
 
 func run() error {
 	mode := flag.String("mode", "demo", "demo (no network changes) or live (Linux only)")
@@ -27,6 +27,8 @@ func run() error {
 	origin := flag.String("origin", "", "canonical panel origin, e.g. https://vpn.example.com")
 	cert := flag.String("tls-cert", "", "TLS certificate file")
 	key := flag.String("tls-key", "", "TLS private key file")
+	allowHTTP := flag.Bool("allow-http", false, "allow live public HTTP (unencrypted); prefer TLS on untrusted networks")
+	resetAccess := flag.String("reset-panel-access", "", "reset panel policy to public, local, or lan, then exit (stop service first)")
 	showVersion := flag.Bool("version", false, "print version")
 	flag.Parse()
 	if *showVersion {
@@ -48,7 +50,7 @@ func run() error {
 	}
 	ip := net.ParseIP(host)
 	loopback := host == "localhost" || (ip != nil && ip.IsLoopback())
-	if !loopback && (*mode == "demo" || *cert == "" || *key == "" || *origin == "") {
+	if !loopback && (*mode == "demo" || (!*allowHTTP && (*cert == "" || *key == "" || *origin == ""))) {
 		return fmt.Errorf("public listeners require live mode, TLS certificate/key, and an explicit HTTPS origin")
 	}
 	if (*cert == "") != (*key == "") {
@@ -59,7 +61,7 @@ func run() error {
 		if e != nil || u.Host == "" || u.Path != "" || u.RawQuery != "" || u.User != nil || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https") {
 			return fmt.Errorf("invalid canonical origin")
 		}
-		if !loopback && u.Scheme != "https" {
+		if !loopback && !*allowHTTP && u.Scheme != "https" {
 			return fmt.Errorf("public origin must use HTTPS")
 		}
 	}
@@ -79,6 +81,13 @@ func run() error {
 		return err
 	}
 	defer unlock()
+	if *resetAccess != "" {
+		if err := app.ResetPanelAccess(absolute, *resetAccess); err != nil {
+			return err
+		}
+		fmt.Println("Panel access reset. Start the service to apply it; administrator credentials are unchanged.")
+		return nil
+	}
 	store, err := app.OpenStore(absolute, *iface)
 	if err != nil {
 		return err

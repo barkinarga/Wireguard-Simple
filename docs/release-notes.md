@@ -1,18 +1,12 @@
-WireGuard Simple v0.2.0 adds an English default interface, 10 embedded interface languages, and installation paths for seven Linux distributions.
+WireGuard Simple v0.3.0 adds direct server-IP panel access on fresh installations and recoverable access controls.
 
-- Interface languages: English, Turkish, German, French, Spanish, Italian, Portuguese, Russian, Arabic, and Simplified Chinese. The selector works before sign-in and in the top bar; the browser remembers the choice. Arabic has an RTL layout.
-- Dates, numbers, relative times, common validation messages, and administrative events follow the selected language. Existing Turkish event history is supported. Low-level technical diagnostics remain English.
-- The installer recognizes Debian, Ubuntu, RHEL, CentOS Stream, AlmaLinux, Rocky Linux, and Fedora; selects `apt-get`, `dnf`, or the EL `yum` fallback; and checks WireGuard kernel support without creating an interface.
-- Missing packages are installed from enabled repositories. Existing curl providers are preserved. The installer does not add repositories, replace kernels, disable SELinux, or change firewalld/NAT/forwarding/DNS.
-- Traffic history, persistent administrative history, and Prometheus remain off on a fresh installation. Existing keys and preferences are preserved on upgrade.
+- Fresh installations listen on all IPv4 interfaces at port 8787 and print loopback plus a detected server address. Existing service listeners are preserved on upgrade.
+- Settings → Panel access offers public, loopback-only, and private-network modes, plus an optional IP/CIDR allowlist. Changes apply immediately; loopback remains available for recovery.
+- A private panel-access.json file persists the policy. A stopped-service CLI reset clears only panel restrictions, preserving administrator credentials and VPN configuration.
+- Authentication, setup tokens, CSRF checks, rate limits, and all 10 interface languages remain available.
 
-On the target Linux server:
+Public HTTP is unencrypted. Use SSH tunneling or TLS on untrusted networks. Host/provider firewall rules must allow TCP 8787 for direct access. Address detection cannot discover an upstream NAT public address. No firewall, NAT, DNS, forwarding, or VPN interface rules are changed by the installer.
 
-```bash
-curl -fL --retry 3 -o wgsimple-install.run https://github.com/barkinarga/Wireguard-Simple/releases/latest/download/wgsimple-install.run && sudo bash wgsimple-install.run
-```
+[Installation, upgrade, and recovery guide](https://github.com/barkinarga/Wireguard-Simple/blob/readme/INSTALL.md).
 
-[Installation guide](https://github.com/barkinarga/Wireguard-Simple/blob/readme/INSTALL.md) · [Platform requirements](https://github.com/barkinarga/Wireguard-Simple/blob/readme/docs/platforms.md)
-
-EL8 requires a prepared WireGuard-capable kernel/module. CentOS means Stream 9+; retired CentOS Linux and immutable ostree images are excluded. A systemd server on amd64/arm64 is required. Internet routing and UDP firewall policy must be configured separately. This remains an early development release: automated tests do not replace real VPN, SELinux, or reboot validation on every target distribution.
-
+Automated tests cover access rules, authentication, CSRF, host/origin rejection, persistence/recovery, and mocked installation. Real VPN connectivity and full target-system networking validation remain outstanding.

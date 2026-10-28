@@ -327,5 +327,19 @@
   "Sampling interval must be 30–3600 seconds": "Sampling interval must be 30–3600 seconds",
   "Set the server endpoint first": "Set the server endpoint first",
   "Sign in is required": "Sign in is required",
-  "Request could not be verified; reload the page": "Request could not be verified; reload the page"
+  "Request could not be verified; reload the page": "Request could not be verified; reload the page",
+  "Panel access": "Panel access",
+  "Control who can reach the management panel. VPN clients are unaffected.": "Control who can reach the management panel. VPN clients are unaffected.",
+  "Access mode": "Access mode",
+  "Public access": "Public access",
+  "This server only": "This server only",
+  "Private networks only": "Private networks only",
+  "Private networks include VPN and LAN addresses; this is based on source IP, not location.": "Private networks include VPN and LAN addresses; this is based on source IP, not location.",
+  "IP allowlist": "IP allowlist",
+  "Optional IPs or CIDRs, separated by commas or lines. Loopback is always allowed. Forwarded headers are ignored.": "Optional IPs or CIDRs, separated by commas or lines. Loopback is always allowed. Forwarded headers are ignored.",
+  "HTTP is unencrypted. Use HTTPS on untrusted networks.": "HTTP is unencrypted. Use HTTPS on untrusted networks.",
+  "Save access": "Save access",
+  "Save panel access?": "Save panel access?",
+  "Access changes may disconnect you. Keep SSH access available for recovery.": "Access changes may disconnect you. Keep SSH access available for recovery.",
+  "Panel access saved": "Panel access saved"
 }

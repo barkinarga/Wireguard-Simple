@@ -57,7 +57,7 @@ Run this on a **supported Linux server** with systemd and `curl` available:
 curl -fL --retry 3 -o wgsimple-install.run https://github.com/barkinarga/Wireguard-Simple/releases/latest/download/wgsimple-install.run && sudo bash wgsimple-install.run
 ```
 
-The installer selects **amd64 or arm64**, checks the embedded payload's SHA-256, installs missing system tools, and starts the management service. The panel listens on `127.0.0.1:8787`; reach it through an SSH tunnel:
+The installer selects **amd64 or arm64**, checks the embedded payload's SHA-256, installs missing system tools, and starts the management service. A fresh installation listens on all IPv4 interfaces on TCP 8787 and prints both loopback and a detected server address. Open `http://SERVER_IP:8787` directly, or use an SSH tunnel:
 
 ```bash
 ssh -L 8787:127.0.0.1:8787 user@server
@@ -69,7 +69,7 @@ Open **http://127.0.0.1:8787** on your computer. On the server, read the first-r
 sudo cat /var/lib/wgsimple/setup-token
 ```
 
-The installer sets up the panel and WireGuard tools. **VPN internet access also requires appropriate forwarding, NAT, and UDP firewall rules**, configured separately for your server. The installer does not change those rules, DNS, or existing VPN interfaces.
+The installer sets up the panel and WireGuard tools. **VPN internet access also requires appropriate forwarding, NAT, and UDP firewall rules**, configured separately for your server. The installer does not change those rules, DNS, or existing VPN interfaces. Direct panel access also requires TCP 8787 to be allowed by your host/provider firewall. HTTP is unencrypted; use the SSH tunnel or configure HTTPS on untrusted networks.
 
 Full steps, upgrades, offline file transfer, and troubleshooting: **[Installation guide](INSTALL.md)**.
 
@@ -83,6 +83,12 @@ Full steps, upgrades, offline file transfer, and troubleshooting: **[Installatio
 | Fedora | `dnf`, `iproute` | Mutable system with systemd; ostree/CoreOS/Silverblue-style images require a separate deployment method |
 
 The installer checks kernel support without creating interfaces or loading modules. It uses enabled repositories, preserves existing `curl` providers, and never adds EPEL/ELRepo, replaces a kernel, disables SELinux, or changes firewalld rules. When available, `restorecon` restores policy labels on installed paths. Package/kernel prerequisites and the distinction between mocked installer tests and real distro validation are described in [platform notes](docs/platforms.md).
+
+## Panel access
+
+In **Settings → Panel access**, choose public access, this server only (loopback/SSH tunnel), or private networks only. An optional IP/CIDR allowlist further restricts non-loopback clients. Changes apply immediately and may disconnect you; the confirmation reminds you to keep SSH available. These are HTTP admission rules; the listening socket remains bound and blocked sources receive HTTP 403. VPN traffic is unaffected.
+
+Recover through SSH by stopping the service, resetting only its panel policy, then starting it again. See [recovery and upgrade steps](INSTALL.md#panel-access-and-recovery). Existing installations retain their service listener on upgrade.
 
 ## Lightweight by default
 

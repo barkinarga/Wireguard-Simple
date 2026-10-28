@@ -44,7 +44,7 @@ sudo cat /var/lib/wgsimple/setup-token
 
 Enter it in the setup screen and create your administrator account. Keep the token private. Its file is removed after setup; future logins use your username and password. The interface defaults to English; a language selector is available before sign-in and in the top bar, with 10 embedded languages.
 
-The default panel is only reachable through loopback and your SSH tunnel. The installer does not expose a public HTTP port.
+On a fresh installation, the panel also listens on `0.0.0.0:8787`. Open the detected `http://SERVER_IP:8787` address directly if TCP 8787 is allowed by the host/provider firewall. Detection uses an address assigned to the server; behind NAT, use the mapped public address. No external IP lookup service is called. HTTP sends passwords, session cookies, and configurations without encryption. Use the SSH tunnel or configure TLS on untrusted networks. The installer does not automatically open firewall ports.
 
 ## 3. Prepare VPN connectivity
 
@@ -77,3 +77,30 @@ An upgrade preserves the interface in the existing service file. With custom HTT
 Stopping the panel leaves an existing WireGuard interface running, but disables monitoring and client expiry enforcement until the panel runs again. Automatic VPN startup after reboot must be enabled separately once its configuration has been validated.
 
 [Back to README](README.md)
+
+## Panel access and recovery
+
+In **Settings → Panel access**, choose **Public access**, **This server only**, or **Private networks only**. Optionally add up to 64 IP addresses or CIDRs, separated by commas or newlines. The allowlist intersects with the selected mode. Loopback is always admitted. Private networks mean RFC1918 IPv4 and unique-local IPv6 source addresses, including VPN networks; this is not a location check.
+
+The policy takes effect on every new request, including sign-in, static files, metrics, and health checks. It is stored in `/var/lib/wgsimple/panel-access.json` with private permissions and persists through restart/upgrade. Blocking sources returns HTTP 403; it does not close the listening socket or change firewall rules. Source IP comes from the TCP connection; forwarded headers are ignored. A local reverse proxy therefore appears as loopback: enforce source restrictions in the proxy itself.
+
+If you lock yourself out, run over SSH:
+
+```bash
+sudo systemctl stop wgsimple.service
+sudo /usr/local/bin/wgsimple --mode live --data-dir /var/lib/wgsimple --reset-panel-access public
+sudo systemctl start wgsimple.service
+```
+
+Use `local` instead of `public` to recover to loopback-only admission, or `lan` for private networks. This clears the allowlist without changing accounts, passwords, VPN keys, or history. Alternatively, while stopped, edit `panel-access.json` to `{"mode":"public","allowlist":[]}` and restart. Invalid files prevent startup rather than silently exposing the panel.
+
+### Upgrading a previous loopback-only installation
+
+Upgrades preserve the existing service listener. If it still uses `--listen 127.0.0.1:8787`, the panel policy cannot make that socket public. After upgrading to v0.3.0 or newer, run `sudo systemctl edit --full wgsimple.service` and replace only `--listen 127.0.0.1:8787` with `--listen 0.0.0.0:8787 --allow-http` in `ExecStart`, preserving all other arguments. Then run:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart wgsimple.service
+```
+
+For TLS instead of unencrypted public HTTP, omit `--allow-http` and supply `--tls-cert`, `--tls-key`, and an explicit HTTPS `--origin`. That canonical origin controls which address the browser must use.

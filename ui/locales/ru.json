@@ -327,5 +327,19 @@
   "Sampling interval must be 30–3600 seconds": "Интервал должен быть 30–3600 секунд",
   "Set the server endpoint first": "Сначала укажите endpoint сервера",
   "Sign in is required": "Необходим вход",
-  "Request could not be verified; reload the page": "Запрос не подтверждён; обновите страницу"
+  "Request could not be verified; reload the page": "Запрос не подтверждён; обновите страницу",
+  "Panel access": "Доступ к панели",
+  "Control who can reach the management panel. VPN clients are unaffected.": "Выберите, кто может открывать панель. На VPN-клиентов это не влияет.",
+  "Access mode": "Режим доступа",
+  "Public access": "Публичный доступ",
+  "This server only": "Только этот сервер",
+  "Private networks only": "Только частные сети",
+  "Private networks include VPN and LAN addresses; this is based on source IP, not location.": "Частные сети включают VPN и LAN; учитывается IP источника, а не местоположение.",
+  "IP allowlist": "Разрешённые IP",
+  "Optional IPs or CIDRs, separated by commas or lines. Loopback is always allowed. Forwarded headers are ignored.": "Необязательные IP или CIDR через запятую или с новой строки. Loopback разрешён всегда. Заголовки пересылки игнорируются.",
+  "HTTP is unencrypted. Use HTTPS on untrusted networks.": "HTTP не шифруется. В недоверенных сетях используйте HTTPS.",
+  "Save access": "Сохранить доступ",
+  "Save panel access?": "Сохранить доступ к панели?",
+  "Access changes may disconnect you. Keep SSH access available for recovery.": "Изменения могут отключить вас. Сохраните SSH-доступ для восстановления.",
+  "Panel access saved": "Доступ к панели сохранён"
 }

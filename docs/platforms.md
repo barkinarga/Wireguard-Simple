@@ -29,7 +29,7 @@ CentOS Stream is the maintained CentOS line. CentOS Linux 7/8 and Stream 8 have 
 ## SELinux, firewalls, and existing VPNs
 
 - SELinux remains enabled. If `restorecon` is available, the installer applies the system's configured labels to the application, unit, and application/config directories. It does not install a permissive policy or disable enforcement. A customized policy may require administrator review of AVC denials.
-- firewalld, nftables, iptables, NAT, forwarding, and DNS policies remain under administrator control. Only the management service is installed; it binds to loopback and is reached through SSH by default.
+- firewalld, nftables, iptables, NAT, forwarding, and DNS policies remain under administrator control. Only the management service is installed; fresh installs bind to all IPv4 interfaces on TCP 8787, with optional loopback/private-network/IP restrictions in the panel. SSH tunneling remains available. External HTTP is unencrypted; configure HTTPS for untrusted networks.
 - Existing service settings and keys are preserved on upgrade. The panel's generated service uses an explicit system path including `sbin` directories, which avoids distribution-specific command lookup differences.
 - Avoid having NetworkManager and this application independently modify the same WireGuard interface. Import the matching server configuration and choose a single owner for its configuration.
 

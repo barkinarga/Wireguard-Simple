@@ -327,5 +327,19 @@
   "Sampling interval must be 30–3600 seconds": "örnekleme aralığı 30–3600 saniye olmalı",
   "Set the server endpoint first": "önce sunucu endpoint adresini ayarlayın",
   "Sign in is required": "oturum açmanız gerekiyor",
-  "Request could not be verified; reload the page": "istek doğrulanamadı; sayfayı yenileyin"
+  "Request could not be verified; reload the page": "istek doğrulanamadı; sayfayı yenileyin",
+  "Panel access": "Panel erişimi",
+  "Control who can reach the management panel. VPN clients are unaffected.": "Yönetim paneline kimlerin erişebileceğini seçin. VPN istemcileri etkilenmez.",
+  "Access mode": "Erişim modu",
+  "Public access": "Dış erişim",
+  "This server only": "Yalnızca bu sunucu",
+  "Private networks only": "Yalnızca özel ağlar",
+  "Private networks include VPN and LAN addresses; this is based on source IP, not location.": "Özel ağlar VPN ve LAN adreslerini kapsar; kaynak IP esas alınır, konum değil.",
+  "IP allowlist": "IP izin listesi",
+  "Optional IPs or CIDRs, separated by commas or lines. Loopback is always allowed. Forwarded headers are ignored.": "İsteğe bağlı IP veya CIDR; virgül veya satırla ayırın. Loopback her zaman açıktır. İletilen başlıklar dikkate alınmaz.",
+  "HTTP is unencrypted. Use HTTPS on untrusted networks.": "HTTP şifrelenmez. Güvenilmeyen ağlarda HTTPS kullanın.",
+  "Save access": "Erişimi kaydet",
+  "Save panel access?": "Panel erişimi kaydedilsin mi?",
+  "Access changes may disconnect you. Keep SSH access available for recovery.": "Erişim değişiklikleri bağlantınızı kesebilir. Kurtarma için SSH erişimini hazır tutun.",
+  "Panel access saved": "Panel erişimi kaydedildi"
 }

@@ -327,5 +327,19 @@
   "Sampling interval must be 30–3600 seconds": "Messintervall muss 30–3600 Sekunden betragen",
   "Set the server endpoint first": "Zuerst Server-Endpoint festlegen",
   "Sign in is required": "Anmeldung erforderlich",
-  "Request could not be verified; reload the page": "Anfrage nicht bestätigt; Seite neu laden"
+  "Request could not be verified; reload the page": "Anfrage nicht bestätigt; Seite neu laden",
+  "Panel access": "Panelzugriff",
+  "Control who can reach the management panel. VPN clients are unaffected.": "Legen Sie fest, wer das Verwaltungspanel erreichen darf. VPN-Clients bleiben unverändert.",
+  "Access mode": "Zugriffsmodus",
+  "Public access": "Öffentlicher Zugriff",
+  "This server only": "Nur dieser Server",
+  "Private networks only": "Nur private Netzwerke",
+  "Private networks include VPN and LAN addresses; this is based on source IP, not location.": "Private Netzwerke umfassen VPN und LAN; entscheidend ist die Quell-IP, nicht der Standort.",
+  "IP allowlist": "IP-Zulassungsliste",
+  "Optional IPs or CIDRs, separated by commas or lines. Loopback is always allowed. Forwarded headers are ignored.": "Optionale IPs oder CIDRs, durch Kommas oder Zeilen getrennt. Loopback bleibt erlaubt. Weiterleitungsheader werden ignoriert.",
+  "HTTP is unencrypted. Use HTTPS on untrusted networks.": "HTTP ist unverschlüsselt. Nutzen Sie HTTPS in nicht vertrauenswürdigen Netzwerken.",
+  "Save access": "Zugriff speichern",
+  "Save panel access?": "Panelzugriff speichern?",
+  "Access changes may disconnect you. Keep SSH access available for recovery.": "Änderungen können Sie trennen. Halten Sie SSH zur Wiederherstellung bereit.",
+  "Panel access saved": "Panelzugriff gespeichert"
 }

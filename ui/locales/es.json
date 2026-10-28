@@ -327,5 +327,19 @@
   "Sampling interval must be 30–3600 seconds": "El intervalo debe ser de 30–3600 segundos",
   "Set the server endpoint first": "Primero configura el endpoint del servidor",
   "Sign in is required": "Debes iniciar sesión",
-  "Request could not be verified; reload the page": "No se pudo verificar la solicitud; recarga la página"
+  "Request could not be verified; reload the page": "No se pudo verificar la solicitud; recarga la página",
+  "Panel access": "Acceso al panel",
+  "Control who can reach the management panel. VPN clients are unaffected.": "Elija quién puede acceder al panel. Los clientes VPN no se ven afectados.",
+  "Access mode": "Modo de acceso",
+  "Public access": "Acceso público",
+  "This server only": "Solo este servidor",
+  "Private networks only": "Solo redes privadas",
+  "Private networks include VPN and LAN addresses; this is based on source IP, not location.": "Las redes privadas incluyen VPN y LAN; se usa la IP de origen, no la ubicación.",
+  "IP allowlist": "Lista de IP permitidas",
+  "Optional IPs or CIDRs, separated by commas or lines. Loopback is always allowed. Forwarded headers are ignored.": "IP o CIDR opcionales separados por comas o líneas. Loopback siempre se permite. Se ignoran las cabeceras de reenvío.",
+  "HTTP is unencrypted. Use HTTPS on untrusted networks.": "HTTP no está cifrado. Use HTTPS en redes no confiables.",
+  "Save access": "Guardar acceso",
+  "Save panel access?": "¿Guardar acceso al panel?",
+  "Access changes may disconnect you. Keep SSH access available for recovery.": "Los cambios pueden desconectarle. Mantenga acceso SSH para la recuperación.",
+  "Panel access saved": "Acceso al panel guardado"
 }

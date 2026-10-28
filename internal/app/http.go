@@ -27,10 +27,16 @@ type HTTPServer struct {
 	auth                     *Auth
 	mode, setupToken, origin string
 	files                    fs.FS
+	access                   panelPolicy
 }
 
 func NewHTTP(service *Service, files fs.FS, origin string, secure bool) (*HTTPServer, error) {
 	s := &HTTPServer{service: service, store: service.store, auth: NewAuth(secure), mode: service.mode, origin: origin, files: files}
+	policy, err := readPanelAccess(s.store.dir)
+	if err != nil {
+		return nil, err
+	}
+	s.access.config = policy
 	if s.mode != "demo" && !s.store.HasAdmin() {
 		path := filepath.Join(s.store.dir, "setup-token")
 		b, err := os.ReadFile(path)
@@ -89,6 +95,8 @@ func (s *HTTPServer) Handler() http.Handler {
 	mux.HandleFunc("PUT /api/server", s.authorized(s.updateServer))
 	mux.HandleFunc("POST /api/import", s.authorized(s.importConfig))
 	mux.HandleFunc("PUT /api/settings", s.authorized(s.updateSettings))
+	mux.HandleFunc("GET /api/panel-access", s.authorized(s.panelAccess))
+	mux.HandleFunc("PUT /api/panel-access", s.authorized(s.updatePanelAccess))
 	mux.HandleFunc("DELETE /api/history", s.authorized(s.clearHistory))
 	mux.HandleFunc("GET /api/history", s.authorized(s.history))
 	mux.HandleFunc("POST /api/password", s.authorized(s.password))
@@ -110,7 +118,7 @@ func (s *HTTPServer) Handler() http.Handler {
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; object-src 'none'")
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-		if !s.allowedRequest(r) {
+		if !s.panelAllowed(r) || !s.allowedRequest(r) {
 			apiError(w, 403, "Use the allowed panel address")
 			return
 		}
@@ -132,7 +140,8 @@ func (s *HTTPServer) allowedRequest(r *http.Request) bool {
 	if err != nil {
 		host = r.Host
 	}
-	if host != "127.0.0.1" && host != "localhost" && host != "::1" {
+	ip := net.ParseIP(host)
+	if host != "localhost" && (ip == nil || (s.mode == "demo" && !ip.IsLoopback())) {
 		return false
 	}
 	if origin := r.Header.Get("Origin"); origin != "" {

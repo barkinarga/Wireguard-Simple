@@ -116,10 +116,13 @@ printf '%s\n' 'PASS dependency detection, no-deps and read-only check (mock pack
 mkdir "$TEST_DIR/first"
 (
   prepare_case "$TEST_DIR/first"
-  wgs_install >/dev/null
+  ip() { printf '%s\n' '2: eth0 inet 198.51.100.10/24 brd 198.51.100.255 scope global eth0'; }
+  wgs_install > "$CASE_DIR/output"
+  grep -q 'Panel ready: http://127.0.0.1:8787' "$CASE_DIR/output"
+  grep -q 'Panel ready: http://198.51.100.10:8787' "$CASE_DIR/output"
   assert_equal "$(cat "$WGS_BIN_DIR/wgsimple")" new-binary
   [[ -f $CASE_DIR/active && -f $CASE_DIR/enabled ]]
-  grep -q -- '--listen 127.0.0.1:8787' "$WGS_UNIT_DIR/wgsimple.service"
+  grep -q -- '--listen 0.0.0.0:8787 --allow-http' "$WGS_UNIT_DIR/wgsimple.service"
   grep -q 'CapabilityBoundingSet=CAP_NET_ADMIN' "$WGS_UNIT_DIR/wgsimple.service"
   [[ ! -e $WGS_STATE_DIR/telemetry.db ]]
 )

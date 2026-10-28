@@ -327,5 +327,19 @@
   "Sampling interval must be 30–3600 seconds": "يجب أن يكون فاصل العينات من 30 إلى 3600 ثانية",
   "Set the server endpoint first": "اضبط نقطة اتصال الخادم أولًا",
   "Sign in is required": "يلزم تسجيل الدخول",
-  "Request could not be verified; reload the page": "تعذر التحقق من الطلب؛ أعد تحميل الصفحة"
+  "Request could not be verified; reload the page": "تعذر التحقق من الطلب؛ أعد تحميل الصفحة",
+  "Panel access": "الوصول إلى اللوحة",
+  "Control who can reach the management panel. VPN clients are unaffected.": "اختر من يمكنه الوصول إلى اللوحة. لا يتأثر عملاء VPN.",
+  "Access mode": "وضع الوصول",
+  "Public access": "وصول عام",
+  "This server only": "هذا الخادم فقط",
+  "Private networks only": "الشبكات الخاصة فقط",
+  "Private networks include VPN and LAN addresses; this is based on source IP, not location.": "تشمل الشبكات الخاصة VPN وLAN؛ يعتمد الفحص على عنوان المصدر وليس الموقع.",
+  "IP allowlist": "عناوين IP المسموحة",
+  "Optional IPs or CIDRs, separated by commas or lines. Loopback is always allowed. Forwarded headers are ignored.": "عناوين IP أو CIDR اختيارية مفصولة بفواصل أو أسطر. يسمح بالوصول المحلي دائما. يتم تجاهل ترويسات التوجيه.",
+  "HTTP is unencrypted. Use HTTPS on untrusted networks.": "HTTP غير مشفر. استخدم HTTPS على الشبكات غير الموثوقة.",
+  "Save access": "حفظ الوصول",
+  "Save panel access?": "حفظ الوصول إلى اللوحة؟",
+  "Access changes may disconnect you. Keep SSH access available for recovery.": "قد تقطع التغييرات اتصالك. احتفظ بوصول SSH للاستعادة.",
+  "Panel access saved": "تم حفظ الوصول إلى اللوحة"
 }

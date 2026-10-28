@@ -327,5 +327,19 @@
   "Sampling interval must be 30–3600 seconds": "采样间隔必须为 30–3600 秒",
   "Set the server endpoint first": "请先设置服务器端点",
   "Sign in is required": "需要登录",
-  "Request could not be verified; reload the page": "无法验证请求，请刷新页面"
+  "Request could not be verified; reload the page": "无法验证请求，请刷新页面",
+  "Panel access": "面板访问",
+  "Control who can reach the management panel. VPN clients are unaffected.": "选择谁可以访问管理面板。不影响 VPN 客户端。",
+  "Access mode": "访问模式",
+  "Public access": "公开访问",
+  "This server only": "仅此服务器",
+  "Private networks only": "仅私有网络",
+  "Private networks include VPN and LAN addresses; this is based on source IP, not location.": "私有网络包括 VPN 和局域网；根据来源 IP 判断，而非地理位置。",
+  "IP allowlist": "IP 允许列表",
+  "Optional IPs or CIDRs, separated by commas or lines. Loopback is always allowed. Forwarded headers are ignored.": "可选 IP 或 CIDR，用逗号或换行分隔。始终允许回环访问。忽略转发标头。",
+  "HTTP is unencrypted. Use HTTPS on untrusted networks.": "HTTP 未加密。在不可信网络中请使用 HTTPS。",
+  "Save access": "保存访问设置",
+  "Save panel access?": "保存面板访问设置？",
+  "Access changes may disconnect you. Keep SSH access available for recovery.": "更改可能断开您的连接。请保留 SSH 访问以便恢复。",
+  "Panel access saved": "面板访问设置已保存"
 }
