@@ -73,6 +73,8 @@ Run this on a **supported Linux server** with systemd and `curl` available:
 curl -fL --retry 3 -o wgsimple-install.run https://github.com/barkinarga/Wireguard-Simple/releases/latest/download/wgsimple-install.run && sudo bash wgsimple-install.run
 ```
 
+**Use the same command to install or update.** From v0.4.1, even a previously downloaded installer checks the latest stable GitHub release. It verifies a newer package before running it, preserves existing accounts/clients/settings, and leaves an already-current installation running. Failed update checks or downloads stop before installation.
+
 The installer selects **amd64 or arm64**, checks the embedded payload's SHA-256, installs missing system tools, and starts the management service. A fresh installation listens on all IPv4 interfaces on TCP 8787 and prints both loopback and a detected server address. Open `http://SERVER_IP:8787` directly, or use an SSH tunnel:
 
 ```bash

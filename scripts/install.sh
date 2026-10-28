@@ -45,6 +45,7 @@ Options:
   --configure-network  Prepare IPv4 internet access on an existing installation
   --no-deps            Do not automatically install missing packages
   --check              Check environment and file only; make no changes
+  --no-update-check    Use this embedded package without checking GitHub
   --help              Show this help
 
 Default: install missing tools, install the panel, and start it.
@@ -63,6 +64,7 @@ wgs_arguments() {
       --no-start) WGS_START=0; shift ;;
       --no-deps) WGS_DEPS=0; shift ;;
       --check) WGS_CHECK=1; shift ;;
+      --no-update-check) shift ;;
       --help|-h) wgs_usage; return 2 ;;
       --*) wgs_fail "Unknown option: $1"; return 1 ;;
       *) [[ -z $WGS_BINARY ]] || { wgs_fail 'Specify only one application file'; return 1; }; WGS_BINARY=$1; shift ;;

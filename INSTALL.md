@@ -6,7 +6,7 @@ These steps are for your **Debian, Ubuntu, RHEL, CentOS Stream, AlmaLinux, Rocky
 
 ## 1. Download and install
 
-Run on the server:
+Use this same command for both first installation and future updates. Run on the server:
 
 ```bash
 curl -fL --retry 3 -o wgsimple-install.run https://github.com/barkinarga/Wireguard-Simple/releases/latest/download/wgsimple-install.run && sudo bash wgsimple-install.run
@@ -62,7 +62,13 @@ Ubuntu 26.04.1 ARM64 KVM startup, a real WireGuard handshake, and a tunnel ping 
 
 ## Update
 
-Run the same download-and-install command again to install the latest published release. The panel briefly restarts; existing clients, administrator credentials, and recording preferences are preserved. The installer does not take down an existing WireGuard interface. You can delete the downloaded `.run` file after installation.
+Run the same command from step 1 whenever you want to update. No uninstall or manual file replacement is needed.
+
+From v0.4.1, an installer you previously downloaded also checks GitHub each time you run `sudo bash wgsimple-install.run`. If a newer stable release exists, it downloads that release and its checksum from the same pinned tag, verifies the package, then installs it. If the installed version is already current or newer, a default run reports that and exits without restarting services. Explicit options such as `--configure-network` still run.
+
+A failed GitHub check, download or checksum stops before installation and leaves the running application untouched. `--check` does not perform a release lookup. For an intentional offline/pinned-package installation, use `--no-update-check` (plus `--no-deps` if package downloads are also unwanted); this uses the embedded version and does not promise the newest release. Installers downloaded before v0.4.1 gain this behavior only after downloading the new installer once.
+
+During an actual update the panel briefly restarts; existing clients, administrator credentials, service configuration and recording preferences are preserved. Existing networking is refreshed only under the established managed-network behavior. The updater adds no background scheduler and no persistent update downloads. You can delete the downloaded `.run` file after installation.
 
 ## Useful commands
 
@@ -72,6 +78,7 @@ Run the same download-and-install command again to install the latest published 
 | Install files without starting the panel | `sudo bash wgsimple-install.run --no-start` |
 | Use administrator-managed VPN networking | `sudo bash wgsimple-install.run --no-network` |
 | Prepare networking on an existing installation | `sudo bash wgsimple-install.run --configure-network` |
+| Use the embedded version without a GitHub release check | `sudo bash wgsimple-install.run --no-update-check` |
 | Skip automatic system package installation | `sudo bash wgsimple-install.run --no-deps` |
 | Choose an interface on a fresh installation | `sudo bash wgsimple-install.run --interface wg1` |
 | Check the panel service | `sudo systemctl status wgsimple.service` |

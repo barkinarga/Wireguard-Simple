@@ -1,29 +1,12 @@
-# WireGuard Simple v0.4.0
+# WireGuard Simple v0.4.1
 
-V2 is now the default interface for every installation and upgrade. The existing
-VPN management features and configuration are preserved.
+Use the same one-line command to install or update. From this version, an already downloaded installer also checks GitHub for the latest stable release before installing.
 
-- Simplified navigation around the sidebar; removed workspace placeholders,
-  slogan cards, theme-preview controls, and repeated settings shortcuts.
-- Clearer client tables, controls, forms, and dialogs. Secondary text is at least
-  12px in V2, including the server information card and public keys.
-- Responsive desktop/mobile layouts, keyboard focus, reduced-motion support,
-  and all ten existing interface languages are retained.
-- Removed the activity retention explanation strip and demo banner/footer text.
-- The executable now defaults to live Linux mode. Explicit `--mode demo` remains
-  available for development and Windows previews; removing labels does not
-  turn simulated data into a real VPN connection.
-- The original visual design remains available at `/?design=v1`.
+- A newer release is downloaded with its checksum from one pinned release tag and verified before execution.
+- An already-current or newer installed version is left running on a default invocation; no service restart or downgrade. Explicit configuration options still run.
+- Failed release checks, downloads and checksum validation stop before installation. The running application remains unchanged.
+- Existing accounts, client keys, expiry dates, settings and service configuration retain the established upgrade behavior.
+- `--check` makes no release request. `--no-update-check` explicitly uses the embedded package for offline or pinned installs. Delegated updates cannot recurse.
+- V2 remains the default interface from v0.4.0, with the existing ten languages and original design available at `/?design=v1`.
 
-## Upgrade
-
-Back up the existing installation, then run the new `wgsimple-install.run` on the
-Linux server. Administrator credentials, client keys, expiry dates, monitoring
-preferences, and networking remain under the existing upgrade behavior. See
-[INSTALL.md](INSTALL.md) for installation, backup, recovery, and network options.
-
-The V2 interface was checked on desktop and mobile. An ARM64 build containing
-these UI changes was installed on an existing Ubuntu test server in live mode;
-service health passed and the WireGuard peer set and configuration were verified
-unchanged. This update does not add new cross-distribution or external-device
-connectivity validation beyond the existing platform notes.
+Installer regression tests cover numeric version ordering, corrupt/duplicate checksums, failed downloads, unavailable or invalid releases, argument preservation, recursion prevention, no-op updates and install-error propagation. No backup feature or background update scheduler is added.

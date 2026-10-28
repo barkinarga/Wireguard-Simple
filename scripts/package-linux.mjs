@@ -1,4 +1,5 @@
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
@@ -6,6 +7,8 @@ import path from 'node:path';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+const updateHelper = readFileSync(new URL('./update-check.sh', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+const packageVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
 export function createTar(entries) {
   const chunks = [];
@@ -32,7 +35,7 @@ export function installerHeader(payloadHash) {
 # WireGuard Simple: self-extracting installer for a target Linux server.
 set -euo pipefail
 if [[ $1 == --help || $1 == -h ]]; then
-  printf '%s\n' 'WireGuard Simple — Linux installer' 'Debian / Ubuntu / RHEL / CentOS Stream / AlmaLinux / Rocky Linux / Fedora' 'Usage: sudo bash wgsimple-install.run [--check] [--no-start] [--no-deps] [--interface wg0] [--no-network] [--configure-network]' 'Does not install on Windows or WSL.'
+  printf '%s\n' 'WireGuard Simple — install or update' 'Debian / Ubuntu / RHEL / CentOS Stream / AlmaLinux / Rocky Linux / Fedora' 'Usage: sudo bash wgsimple-install.run [--check] [--no-start] [--no-deps] [--interface wg0] [--no-network] [--configure-network] [--no-update-check]' 'Checks GitHub for the latest stable release by default. Does not install on Windows or WSL.'
   exit 0
 fi
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
@@ -54,6 +57,10 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+@UPDATE_HELPER@
+update_result=0
+wgs_check_release "$temporary" '@PACKAGE_VERSION@' "$@" || update_result=$?
+case $update_result in 0) ;; 10|11) exit 0 ;; *) exit "$update_result" ;; esac
 payload_line=$(awk '$0 == "__WGS_PAYLOAD__" { print NR + 1; exit }' "$0")
 [[ $payload_line =~ ^[0-9]+$ ]] || { printf '%s\n' 'Invalid package header.' >&2; exit 1; }
 tail -n +"$payload_line" "$0" > "$temporary/payload.tar.gz"
@@ -62,7 +69,7 @@ tar --extract --gzip --file "$temporary/payload.tar.gz" --directory "$temporary"
 bash "$temporary/install.sh" --binary "$temporary/wgsimple-$arch" "$@"
 exit 0
 __WGS_PAYLOAD__
-`.replace('@PAYLOAD_SHA256@', payloadHash).replace('[[ $1 == --help || $1 == -h ]]', '[[ ${1:-} == --help || ${1:-} == -h ]]');
+`.replace('@PAYLOAD_SHA256@', payloadHash).replace('@UPDATE_HELPER@', updateHelper).replace('@PACKAGE_VERSION@', packageVersion).replace('[[ $1 == --help || $1 == -h ]]', '[[ ${1:-} == --help || ${1:-} == -h ]]');
 }
 
 export async function buildInstaller() {
