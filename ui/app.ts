@@ -101,6 +101,7 @@ function bindLanguageControl(): void {
       const field = document.getElementById(draft.form ?? '') instanceof HTMLFormElement ? (document.getElementById(draft.form!) as HTMLFormElement).elements.namedItem(draft.name) : null;
       if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
         field.value = draft.value;
+        if (draft.form === "panel-access-form") field.form!.dataset.restored = "true";
         if (field instanceof HTMLInputElement && ['checkbox', 'radio'].includes(field.type)) field.checked = draft.checked;
       }
     }
@@ -202,10 +203,14 @@ function bindMain(): void {
   if (view === 'settings') {
     document.querySelector('.settings-primary')?.insertAdjacentHTML('afterbegin', panelAccessForm());
     const form = document.querySelector<HTMLFormElement>('#panel-access-form')!;
+    form.addEventListener('input', () => { form.dataset.restored = 'true'; });
+    form.addEventListener('change', () => { form.dataset.restored = 'true'; });
     void api<{mode: string; allowlist: string[]}>('/api/panel-access').then(p => {
       if (!form.isConnected) return;
+      if (form.dataset.restored !== 'true') {
       (form.elements.namedItem('mode') as HTMLSelectElement).value = p.mode;
       (form.elements.namedItem('allowlist') as HTMLTextAreaElement).value = (p.allowlist ?? []).join('\n');
+      }
       form.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled = false;
     }).catch(e => toast(String(e)));
     form.addEventListener('submit', event => {
