@@ -16,7 +16,7 @@ The check is an installer compatibility boundary, not a statement of the distrib
 
 ## Kernel and repository prerequisites
 
-The installer first plans missing tools: `wireguard-tools`, `iproute2` or `iproute`, `curl`, and `kmod`; package installation also ensures `ca-certificates`. Existing tools are preserved. In particular, an existing `curl-minimal` provider is not replaced merely because another package is missing. RPM installs disable weak dependencies to avoid unnecessary packages.
+The installer first plans missing tools: `wireguard-tools`, `iproute2` or `iproute`, `curl`, `kmod`, `nftables`, and `procps`/`procps-ng` (for `sysctl`); package installation also ensures `ca-certificates`. Existing tools are preserved. In particular, an existing `curl-minimal` provider is not replaced merely because another package is missing. RPM installs disable weak dependencies to avoid unnecessary packages.
 
 The running kernel must already support WireGuard. The check uses `/sys/module/wireguard` or `modprobe --dry-run --quiet wireguard`; it does not create an interface, load a module, or change routes. EL8 kernels can require separately prepared WireGuard modules. Upstream documents EL8-specific module/repository options, which remain an administrator decision. The installer does not enable EPEL, ELRepo, COPR, change subscription settings, or replace a kernel. [WireGuard installation reference](https://www.wireguard.com/install/).
 
@@ -29,7 +29,7 @@ CentOS Stream is the maintained CentOS line. CentOS Linux 7/8 and Stream 8 have 
 ## SELinux, firewalls, and existing VPNs
 
 - SELinux remains enabled. If `restorecon` is available, the installer applies the system's configured labels to the application, unit, and application/config directories. It does not install a permissive policy or disable enforcement. A customized policy may require administrator review of AVC denials.
-- firewalld, nftables, iptables, NAT, forwarding, and DNS policies remain under administrator control. Only the management service is installed; fresh installs bind to all IPv4 interfaces on TCP 8787, with optional loopback/private-network/IP restrictions in the panel. SSH tunneling remains available. External HTTP is unencrypted; configure HTTPS for untrusted networks.
+- Fresh installs prepare IPv4 forwarding, subnet-scoped nftables NAT and interface startup in a dedicated boot service. Active firewalld/UFW, custom input/forward rules, and ambiguous uplinks stop automatic preparation; use `--no-network` and configure VPN routing through your existing firewall manager. No firewall is disabled or flushed. Provider UDP access remains an administrator task. DNS and IPv6 policies remain unchanged; fresh installs bind to all IPv4 interfaces on TCP 8787, with optional loopback/private-network/IP restrictions in the panel. SSH tunneling remains available. External HTTP is unencrypted; configure HTTPS for untrusted networks.
 - Existing service settings and keys are preserved on upgrade. The panel's generated service uses an explicit system path including `sbin` directories, which avoids distribution-specific command lookup differences.
 - Avoid having NetworkManager and this application independently modify the same WireGuard interface. Import the matching server configuration and choose a single owner for its configuration.
 

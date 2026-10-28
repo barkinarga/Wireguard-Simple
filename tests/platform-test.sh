@@ -38,9 +38,9 @@ for id in debian ubuntu rhel centos almalinux rocky fedora; do
     WGS_DEPS=1; wgs_dependencies >/dev/null
     if [[ $WGS_FAMILY == debian ]]; then
       assert_equal "${calls[0]}" 'apt-get update'
-      assert_equal "${calls[1]}" 'apt-get install -y --no-install-recommends wireguard-tools iproute2 curl kmod ca-certificates'
+      assert_equal "${calls[1]}" 'apt-get install -y --no-install-recommends wireguard-tools iproute2 curl kmod nftables procps ca-certificates'
     else
-      assert_equal "${calls[0]}" 'dnf install -y --setopt=install_weak_deps=False wireguard-tools iproute curl kmod ca-certificates'
+      assert_equal "${calls[0]}" 'dnf install -y --setopt=install_weak_deps=False wireguard-tools iproute curl kmod nftables procps-ng ca-certificates'
     fi
   )
 done
@@ -61,7 +61,7 @@ printf '%s\n' 'PASS apt/dnf package plans, check-only and no-deps for every dist
   dnf() { calls+=("$*"); return 1; }
   if wgs_dependencies >/dev/null 2>&1; then exit 1; fi
   assert_equal "${#calls[@]}" 1
-  assert_equal "${calls[0]}" 'install -y --setopt=install_weak_deps=False wireguard-tools iproute ca-certificates'
+  assert_equal "${calls[0]}" 'install -y --setopt=install_weak_deps=False wireguard-tools iproute nftables procps-ng ca-certificates'
 )
 printf '%s\n' 'PASS RHEL yum fallback, repository failure stops without adding repos, existing curl preserved'
 

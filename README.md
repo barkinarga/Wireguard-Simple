@@ -14,9 +14,9 @@
 
 A lightweight WireGuard management console for Debian, Ubuntu, RHEL, CentOS Stream, AlmaLinux, Rocky Linux, and Fedora, with an original interface, live monitoring, and optional history. Built independently in Go and TypeScript.
 
-The compiled interface is embedded in the Go application. Your server needs **one application, WireGuard tools, and systemd**. No Node.js, separate frontend server, or database service is required at runtime.
+The compiled interface is embedded in the Go application. Your server needs **one application, WireGuard tools, nftables, and systemd**. No Node.js, separate frontend server, or database service is required at runtime.
 
-**Early development release:** builds, automated tests, and installer checks run in Linux CI. The interface startup fix was tested on an Ubuntu 26.04.1 ARM64 KVM server, including a real WireGuard handshake and tunnel ping with a temporary client namespace on the same host. External client connectivity, internet routing, reboot recovery, SELinux enforcement, and resource use across target distributions still need end-to-end validation.
+**Early development release:** builds, automated tests, and installer checks run in Linux CI. The interface startup fix was tested on an Ubuntu 26.04.1 ARM64 KVM server, including a real WireGuard handshake, internet ping, DNS and HTTPS from a temporary VPN client namespace on the same host. External-device connectivity, full-machine reboot recovery, SELinux enforcement, and resource use across target distributions still need end-to-end validation.
 
 ## Languages
 
@@ -69,7 +69,7 @@ Open **http://127.0.0.1:8787** on your computer. On the server, read the first-r
 sudo cat /var/lib/wgsimple/setup-token
 ```
 
-The installer sets up the panel and WireGuard tools. **VPN internet access also requires appropriate forwarding, NAT, and UDP firewall rules**, configured separately for your server. The installer does not change those rules, DNS, or existing VPN interfaces. Direct panel access also requires TCP 8787 to be allowed by your host/provider firewall. HTTP is unencrypted; use the SSH tunnel or configure HTTPS on untrusted networks.
+**Fresh installations also prepare IPv4 forwarding, subnet-scoped NAT and automatic WireGuard startup.** The uplink is detected from the default IPv4 route. Active UFW/firewalld or custom input/forward rules require administrator-managed setup with `--no-network`; the installer stops with an explanation instead of silently reporting success. Existing installations retain their networking unless you request `--configure-network`. Set the public endpoint in Settings and allow the VPN UDP port in your provider firewall (default 51820). Direct panel access also requires TCP 8787 to be allowed by your host/provider firewall. HTTP is unencrypted; use the SSH tunnel or configure HTTPS on untrusted networks.
 
 Full steps, upgrades, offline file transfer, and troubleshooting: **[Installation guide](INSTALL.md)**.
 

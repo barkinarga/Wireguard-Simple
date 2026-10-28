@@ -22,6 +22,9 @@ WGS_DISTRO=
 WGS_FAMILY=
 WGS_MANAGER=
 WGS_IP_PACKAGE=
+WGS_NETWORK=auto
+WGS_NETWORK_NEW=0
+WGS_QUICK_WAS_ENABLED=0
 WGS_MAJOR=
 
 wgs_message() { printf '%s\n' "$*"; }
@@ -38,13 +41,16 @@ Options:
   --binary FILE        Local Linux application to install
   --interface NAME     WireGuard interface for a fresh install (default: wg0)
   --no-start           Install files without starting/enabling the service
+  --no-network         Leave VPN routing/firewall setup to the administrator
+  --configure-network  Prepare IPv4 internet access on an existing installation
   --no-deps            Do not automatically install missing packages
   --check              Check environment and file only; make no changes
   --help              Show this help
 
 Default: install missing tools, install the panel, and start it.
 Existing clients, keys, and service configuration are preserved on upgrade.
-VPN interfaces, NAT, forwarding, DNS, and firewall rules are not changed.
+Fresh installations prepare IPv4 VPN startup, forwarding and NAT.
+Active/custom firewalls require explicit administrator setup with --no-network.
 HELP
 }
 wgs_arguments() {
@@ -52,6 +58,8 @@ wgs_arguments() {
     case $1 in
       --binary) [[ $# -ge 2 && -z $WGS_BINARY ]] || { wgs_fail '--binary requires exactly one file'; return 1; }; WGS_BINARY=$2; shift 2 ;;
       --interface) [[ $# -ge 2 ]] || { wgs_fail '--interface requires a name'; return 1; }; WGS_INTERFACE=$2; shift 2 ;;
+      --no-network) WGS_NETWORK=off; shift ;;
+      --configure-network) WGS_NETWORK=on; shift ;;
       --no-start) WGS_START=0; shift ;;
       --no-deps) WGS_DEPS=0; shift ;;
       --check) WGS_CHECK=1; shift ;;
@@ -115,6 +123,12 @@ wgs_dependencies() {
   command -v ip >/dev/null 2>&1 || packages+=("$WGS_IP_PACKAGE")
   command -v curl >/dev/null 2>&1 || packages+=(curl)
   command -v modprobe >/dev/null 2>&1 || packages+=(kmod)
+  if [[ $WGS_NETWORK != off ]]; then
+    command -v nft >/dev/null 2>&1 || packages+=(nftables)
+    if ! command -v sysctl >/dev/null 2>&1; then
+      if [[ $WGS_FAMILY == debian ]]; then packages+=(procps); else packages+=(procps-ng); fi
+    fi
+  fi
   if ((${#packages[@]} == 0)); then return 0; fi
   packages+=(ca-certificates)
   if ((WGS_CHECK)); then wgs_message "Missing packages via $WGS_MANAGER: ${packages[*]} (check only)"; return 0; fi
@@ -127,7 +141,9 @@ wgs_dependencies() {
     wgs_fail 'Package installation failed. Check enabled distribution repositories and RHEL subscription access. Extra repositories are never enabled automatically.'; return 1
   fi
   local tool
-  for tool in wg wg-quick ip curl modprobe; do
+  local -a tools=(wg wg-quick ip curl modprobe)
+  if [[ $WGS_NETWORK != off ]]; then tools+=(nft sysctl); fi
+  for tool in "${tools[@]}"; do
     command -v "$tool" >/dev/null 2>&1 || { wgs_fail "Required tool is still unavailable after installation: $tool"; return 1; }
   done
 }
@@ -148,6 +164,7 @@ wgs_write_unit() {
 Description=WireGuard Simple management console
 After=network-online.target
 Wants=network-online.target
+$(if ((WGS_NETWORK_NEW)); then printf 'Requires=wgsimple-network.service\nAfter=wgsimple-network.service'; fi)
 
 [Service]
 Type=simple
@@ -184,6 +201,24 @@ WantedBy=multi-user.target
 UNIT
   chmod 0644 "$WGS_UNIT_DIR/wgsimple.service"
 }
+wgs_network_unit() {
+  cat > "$WGS_UNIT_DIR/wgsimple-network.service" <<UNIT
+[Unit]
+Description=WireGuard Simple managed IPv4 internet access
+After=network-online.target systemd-sysctl.service
+Wants=network-online.target
+Before=wgsimple.service
+[Service]
+Type=oneshot
+UMask=0077
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=$WGS_BIN_DIR/wgsimple --mode live --data-dir $WGS_STATE_DIR --config-dir $WGS_CONFIG_DIR --interface $WGS_INTERFACE --prepare-network
+RemainAfterExit=yes
+[Install]
+WantedBy=multi-user.target
+UNIT
+  chmod 0644 "$WGS_UNIT_DIR/wgsimple-network.service"
+}
 wgs_ready() {
   local attempt
   for attempt in {1..20}; do
@@ -219,6 +254,12 @@ wgs_rollback() {
       if [[ -f $WGS_TEMP/previous-control.db$suffix ]]; then install -m 0600 "$WGS_TEMP/previous-control.db$suffix" "$WGS_STATE_DIR/control.db$suffix" || failed=1; fi
     done
   fi
+  if ((WGS_NETWORK_NEW)); then
+    systemctl stop wgsimple-network.service >/dev/null 2>&1 || true
+    systemctl disable wgsimple-network.service >/dev/null 2>&1 || true
+    rm -f -- "$WGS_UNIT_DIR/wgsimple-network.service" || failed=1
+  fi
+  if ((WGS_QUICK_WAS_ENABLED)); then systemctl enable "wg-quick@$WGS_INTERFACE.service" >/dev/null 2>&1 || failed=1; fi
   systemctl daemon-reload || failed=1
   if ((WGS_WAS_ENABLED)); then systemctl enable wgsimple.service >/dev/null 2>&1 || failed=1; elif ((WGS_UNIT_EXISTED)); then systemctl disable wgsimple.service >/dev/null 2>&1 || failed=1; fi
   if ((WGS_WAS_ACTIVE)); then systemctl start wgsimple.service || failed=1; fi
@@ -236,11 +277,14 @@ wgs_finish() {
 }
 wgs_install() {
   local destination=$WGS_BIN_DIR/wgsimple unit=$WGS_UNIT_DIR/wgsimple.service
-  [[ ! -L $destination && ! -L $unit && ! -L $WGS_STATE_DIR && ! -L $WGS_CONFIG_DIR ]] || { wgs_fail 'Symbolic link detected in installation targets; no automatic changes made'; return 1; }
+  [[ ! -L $destination && ! -L $unit && ! -L $WGS_STATE_DIR && ! -L $WGS_CONFIG_DIR && ! -L $WGS_UNIT_DIR/wgsimple-network.service ]] || { wgs_fail 'Symbolic link detected in installation targets; no automatic changes made'; return 1; }
   if systemctl is-active --quiet wgsimple.service; then WGS_WAS_ACTIVE=1; fi
   if systemctl is-enabled --quiet wgsimple.service; then WGS_WAS_ENABLED=1; fi
   if [[ -f $destination ]]; then WGS_BINARY_EXISTED=1; cp -p -- "$destination" "$WGS_TEMP/previous-binary"; fi
   if [[ -f $unit ]]; then WGS_UNIT_EXISTED=1; cp -p -- "$unit" "$WGS_TEMP/previous-unit"; fi
+  if [[ $WGS_NETWORK == on || ( $WGS_NETWORK == auto && $WGS_UNIT_EXISTED == 0 && ! -e $WGS_STATE_DIR/control.db && ! -e $WGS_CONFIG_DIR/$WGS_INTERFACE.conf ) ]]; then
+    if [[ ! -e $WGS_UNIT_DIR/wgsimple-network.service ]]; then WGS_NETWORK_NEW=1; fi
+  fi
   WGS_ROLLBACK=1
   if ((WGS_WAS_ACTIVE)); then systemctl stop wgsimple.service; fi
   local suffix
@@ -251,8 +295,21 @@ wgs_install() {
   install -d -m 0700 "$WGS_STATE_DIR" "$WGS_CONFIG_DIR"
   wgs_replace_binary "$WGS_BINARY"
   if ((WGS_UNIT_EXISTED == 0)); then wgs_write_unit; else wgs_message 'Existing service configuration preserved.'; fi
+  if ((WGS_NETWORK_NEW)); then wgs_network_unit; fi
   wgs_restore_labels "$unit" "$WGS_STATE_DIR" "$WGS_CONFIG_DIR"
   systemctl daemon-reload
+  if ((WGS_START)) && [[ $WGS_NETWORK != off && ( $WGS_NETWORK_NEW == 1 || -f $WGS_UNIT_DIR/wgsimple-network.service ) ]]; then
+    if ! systemctl enable wgsimple-network.service || ! systemctl restart wgsimple-network.service; then
+      wgs_message 'IPv4 network preparation failed. Read: journalctl -u wgsimple-network.service --no-pager' >&2
+      wgs_fail 'Configure the active firewall explicitly, or use --no-network for administrator-managed routing.'; return 1
+    fi
+  fi
+  if ((WGS_START)) && [[ $WGS_NETWORK != off && -f $WGS_UNIT_DIR/wgsimple-network.service ]]; then
+    if systemctl is-enabled --quiet "wg-quick@$WGS_INTERFACE.service"; then
+      WGS_QUICK_WAS_ENABLED=1
+      systemctl disable "wg-quick@$WGS_INTERFACE.service"
+    fi
+  fi
   if ((WGS_START)); then WGS_START_ATTEMPTED=1; systemctl enable --now wgsimple.service; wgs_ready; fi
   WGS_ROLLBACK=0
   wgs_message ''
@@ -276,7 +333,12 @@ wgs_install() {
   wgs_message 'From your own computer: ssh -L 8787:127.0.0.1:8787 USER@SERVER_IP'
   wgs_message "If a setup token exists, read it privately on the server: sudo cat $WGS_STATE_DIR/setup-token"
   wgs_message 'Client data is preserved; traffic history and log preferences are unchanged.'
-  wgs_message 'NAT, DNS, forwarding, firewall rules, and VPN interfaces were not changed.'
+  if [[ $WGS_NETWORK != off && -f $WGS_UNIT_DIR/wgsimple-network.service ]]; then
+    wgs_message 'IPv4 VPN startup, forwarding and subnet-scoped NAT are managed automatically.'
+    wgs_message 'Allow the saved WireGuard UDP port in your provider firewall (default: UDP 51820). Set the public endpoint in Settings.'
+  else
+    wgs_message 'VPN networking is administrator-managed. Configure forwarding, NAT, UDP firewall access and boot startup before connecting clients.'
+  fi
 }
 wgs_main() {
   local result=0 arch script_dir

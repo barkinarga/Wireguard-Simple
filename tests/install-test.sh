@@ -11,6 +11,7 @@ mock_service() {
     is-active) [[ -f $CASE_DIR/active ]] ;;
     is-enabled) [[ -f $CASE_DIR/enabled ]] ;;
     stop) rm -f -- "$CASE_DIR/active" ;;
+    restart) touch "$CASE_DIR/network-ready" ;;
     start) touch "$CASE_DIR/active" ;;
     enable) touch "$CASE_DIR/enabled"; if [[ $* == *--now* ]]; then touch "$CASE_DIR/active"; fi ;;
     disable) rm -f -- "$CASE_DIR/enabled" ;;
@@ -28,6 +29,9 @@ prepare_case() {
   WGS_TEMP=$CASE_DIR/backup
   WGS_BINARY=$CASE_DIR/input-binary
   WGS_START=1
+  WGS_NETWORK=off
+  WGS_NETWORK_NEW=0
+  WGS_QUICK_WAS_ENABLED=0
   mkdir -p "$WGS_BIN_DIR" "$WGS_STATE_DIR" "$WGS_CONFIG_DIR" "$WGS_UNIT_DIR" "$WGS_TEMP"
   printf new-binary > "$WGS_BINARY"
   systemctl() { mock_service "$@"; }
@@ -93,6 +97,7 @@ printf '%s\n' 'PASS architecture selection and actual ELF/Windows validation'
 
 (
   wgs_distribution debian 13 Debian
+  WGS_NETWORK=auto
   dependency_log=$TEST_DIR/dependencies
   tools_ready=1
   apt-get() { printf '%s\n' "$*" >> "$dependency_log"; if [[ $1 == install ]]; then tools_ready=1; fi; }
@@ -109,7 +114,7 @@ printf '%s\n' 'PASS architecture selection and actual ELF/Windows validation'
   WGS_DEPS=1
   wgs_dependencies >/dev/null
   [[ $(wc -l < "$dependency_log") -eq 2 ]]
-  grep -q -- '--no-install-recommends wireguard-tools iproute2 curl kmod ca-certificates' "$dependency_log"
+  grep -q -- '--no-install-recommends wireguard-tools iproute2 curl kmod nftables procps ca-certificates' "$dependency_log"
 )
 printf '%s\n' 'PASS dependency detection, no-deps and read-only check (mock package manager)'
 
@@ -177,3 +182,26 @@ mkdir "$TEST_DIR/symlink"
   assert_equal "$(cat "$CASE_DIR/protected")" untouched
   printf '%s\n' 'PASS symbolic-link destination rejected'
 )
+
+mkdir "$TEST_DIR/network"
+(
+  prepare_case "$TEST_DIR/network"
+  WGS_NETWORK=auto
+  ip() { printf '%s\n' '2: eth0 inet 198.51.100.10/24 scope global eth0'; }
+  wgs_install >/dev/null
+  [[ -f $WGS_UNIT_DIR/wgsimple-network.service && -f $CASE_DIR/network-ready ]]
+  grep -q -- '--prepare-network' "$WGS_UNIT_DIR/wgsimple-network.service"
+  grep -q 'Requires=wgsimple-network.service' "$WGS_UNIT_DIR/wgsimple.service"
+)
+printf '%s\n' 'PASS fresh install automatically prepares persistent IPv4 internet access'
+
+mkdir "$TEST_DIR/network-failure"
+(
+  prepare_case "$TEST_DIR/network-failure"
+  WGS_NETWORK=auto
+  systemctl() { if [[ $1 == restart ]]; then return 1; fi; mock_service "$@"; }
+  if wgs_install > "$CASE_DIR/output" 2>&1; then exit 1; fi
+  ! grep -q 'WireGuard Simple installed.' "$CASE_DIR/output"
+  grep -q 'network preparation failed' "$CASE_DIR/output"
+)
+printf '%s\n' 'PASS failed network bootstrap never reports successful installation'

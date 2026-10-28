@@ -16,7 +16,7 @@ import (
 	"wireguard-simple/internal/web"
 )
 
-var version = "0.3.2-dev"
+var version = "0.3.3-dev"
 
 func run() error {
 	mode := flag.String("mode", "demo", "demo (no network changes) or live (Linux only)")
@@ -29,6 +29,7 @@ func run() error {
 	key := flag.String("tls-key", "", "TLS private key file")
 	allowHTTP := flag.Bool("allow-http", false, "allow live public HTTP (unencrypted); prefer TLS on untrusted networks")
 	resetAccess := flag.String("reset-panel-access", "", "reset panel policy to public, local, or lan, then exit (stop service first)")
+	prepareNetwork := flag.Bool("prepare-network", false, "prepare managed IPv4 interface, forwarding and NAT, then exit (root, live mode, stop panel first)")
 	showVersion := flag.Bool("version", false, "print version")
 	flag.Parse()
 	if *showVersion {
@@ -99,6 +100,17 @@ func run() error {
 	}
 	if actual.Interface != *iface {
 		return fmt.Errorf("data directory belongs to interface %s", actual.Interface)
+	}
+	if *prepareNetwork {
+		if *mode != "live" {
+			return fmt.Errorf("network preparation requires live mode")
+		}
+		_ = os.Setenv("LC_ALL", "C")
+		if err := app.PrepareInternet(context.Background(), store, *configDir); err != nil {
+			return err
+		}
+		fmt.Println("Managed IPv4 VPN interface, forwarding and NAT are ready.")
+		return nil
 	}
 	var engine app.Engine = app.NewDemoEngine()
 	if *mode == "live" {

@@ -22,7 +22,7 @@ On the RPM-based distributions, use `sudo dnf install -y curl ca-certificates` (
 
 Alternatively, download `wgsimple-install.run` from the [latest release](https://github.com/barkinarga/Wireguard-Simple/releases/latest), copy it to the server, and run `sudo bash wgsimple-install.run` there. To install without downloading missing system packages, provide those packages yourself and use `--no-deps`.
 
-The installer chooses the architecture, verifies the embedded payload's checksum, installs missing WireGuard tools, IP tools (`iproute2` or `iproute`), `curl`, and `kmod`, then checks kernel support and starts `wgsimple.service`. It uses your enabled repositories; if a package is unavailable, it stops with an explanation. It adds no external repository, kernel, Go compiler, Node.js, Docker, or database service. Temporary extraction files are cleaned up.
+The installer chooses the architecture, verifies the embedded payload's checksum, installs missing WireGuard tools, IP tools (`iproute2` or `iproute`), `curl`, `kmod`, `nftables`, and `procps`/`procps-ng` (for `sysctl`), then checks kernel support and starts `wgsimple.service`. It uses your enabled repositories; if a package is unavailable, it stops with an explanation. It adds no external repository, kernel, Go compiler, Node.js, Docker, or database service. Temporary extraction files are cleaned up.
 
 Traffic history, persistent administrative logs, and Prometheus are **off on a fresh installation**. Existing settings and client keys are preserved on upgrade. If startup fails, the installer attempts to restore the previous application and service state.
 
@@ -50,11 +50,15 @@ On a fresh installation, the panel also listens on `0.0.0.0:8787`. Open the dete
 
 In **Settings → Endpoint**, enter your server's public IP address or domain. Use **Add client** to create a device and obtain its configuration or QR code.
 
-**The one-command installer sets up the management panel and tools.** Internet access through the VPN additionally requires IP forwarding, NAT, and UDP firewall rules appropriate for your server. Configure these separately. The installer does not change them, DNS, or existing VPN interfaces.
+**Fresh installations prepare the IPv4 VPN interface, forwarding and NAT automatically.** A dedicated `wgsimple-network.service` runs before the panel and restores networking on boot. NAT is limited to traffic arriving on the saved WireGuard interface from its saved subnet and leaving the detected default IPv4 uplink. Rules are replaced atomically in an application-owned nftables table; other tables are not flushed. DNS settings and the system default route are preserved.
+
+Active UFW/firewalld or custom input/forward rules are detected before network preparation and require explicit administrator configuration. Install with `--no-network`, then configure VPN forwarding, NAT, UDP access and boot startup using your firewall manager. Ambiguous/multiple uplinks also require manual setup. The installer does not disable your firewall or claim that VPN networking succeeded when preparation failed.
+
+Allow the saved WireGuard UDP port in your provider firewall (default **51820/UDP**). Provider firewall rules and public/NAT endpoint detection are outside local automatic setup. After changing the subnet or uplink on a managed installation, rerun the installer with `--configure-network` to refresh NAT.
 
 Live management actions can create or update the selected WireGuard interface. For an existing VPN, import its matching server configuration before managing clients. Server files do not contain client private keys, so imported clients cannot receive regenerated client configurations from that import alone.
 
-Ubuntu 26.04.1 ARM64 KVM startup, a real WireGuard handshake, and a tunnel ping with a temporary client namespace on the same host have been verified. External-device connectivity, internet routing, and reboot recovery have not yet completed end-to-end validation for this early release. Test on a dedicated Linux server before relying on it.
+Ubuntu 26.04.1 ARM64 KVM startup, a real WireGuard handshake, and a tunnel ping with a temporary client namespace on the same host have been verified. Internet ping, DNS and HTTPS have also passed through a temporary VPN client namespace. External-device connectivity and full-machine reboot recovery have not yet completed end-to-end validation for this early release. Test on a dedicated Linux server before relying on it.
 
 ## Update
 
@@ -66,6 +70,8 @@ Run the same download-and-install command again to install the latest published 
 | --- | --- |
 | Check the environment without installing | `bash wgsimple-install.run --check` |
 | Install files without starting the panel | `sudo bash wgsimple-install.run --no-start` |
+| Use administrator-managed VPN networking | `sudo bash wgsimple-install.run --no-network` |
+| Prepare networking on an existing installation | `sudo bash wgsimple-install.run --configure-network` |
 | Skip automatic system package installation | `sudo bash wgsimple-install.run --no-deps` |
 | Choose an interface on a fresh installation | `sudo bash wgsimple-install.run --interface wg1` |
 | Check the panel service | `sudo systemctl status wgsimple.service` |
@@ -74,7 +80,7 @@ Run the same download-and-install command again to install the latest published 
 
 An upgrade preserves the interface in the existing service file. With custom HTTPS/origin settings, the installer's loopback health check may not apply; install using `--no-start` and start the service with your own configuration.
 
-Stopping the panel leaves an existing WireGuard interface running, but disables monitoring and client expiry enforcement until the panel runs again. Automatic VPN startup after reboot must be enabled separately once its configuration has been validated.
+Stopping the panel leaves an existing WireGuard interface running, but disables monitoring and client expiry enforcement until the panel runs again. Fresh installations use the dedicated network bootstrap at boot. Existing installations keep their previous startup policy; use `--configure-network` to opt into managed IPv4 networking.
 
 [Back to README](README.md)
 

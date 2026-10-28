@@ -32,7 +32,7 @@ export function installerHeader(payloadHash) {
 # WireGuard Simple: self-extracting installer for a target Linux server.
 set -euo pipefail
 if [[ $1 == --help || $1 == -h ]]; then
-  printf '%s\n' 'WireGuard Simple — Linux installer' 'Debian / Ubuntu / RHEL / CentOS Stream / AlmaLinux / Rocky Linux / Fedora' 'Usage: sudo bash wgsimple-install.run [--check] [--no-start] [--no-deps] [--interface wg0]' 'Does not install on Windows or WSL.'
+  printf '%s\n' 'WireGuard Simple — Linux installer' 'Debian / Ubuntu / RHEL / CentOS Stream / AlmaLinux / Rocky Linux / Fedora' 'Usage: sudo bash wgsimple-install.run [--check] [--no-start] [--no-deps] [--interface wg0] [--no-network] [--configure-network]' 'Does not install on Windows or WSL.'
   exit 0
 fi
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin

@@ -1,10 +1,11 @@
-WireGuard Simple v0.3.2 fixes new-interface startup on Ubuntu 26.04.1 ARM64.
+# WireGuard Simple v0.3.3
 
-- Start new managed interfaces with direct ip/wg commands instead of a wg-quick subprocess. This avoids a reproduced AppArmor child-profile transition failure under NoNewPrivileges.
-- Preserve AppArmor, NoNewPrivileges, the capability bound, and the other supplied service restrictions.
-- Remove an interface created by the current operation if configuration/address/link setup fails. Do not delete an interface when creation itself fails. Existing-interface updates continue through wg syncconf.
-- Keep wg-quick-compatible configuration files for external startup. Fresh routed-subnet setups outside the server VPN network require external startup and import rather than silently missing routes.
+Fresh installations now prepare IPv4 VPN internet access instead of installing only the panel. A dedicated root bootstrap starts the managed WireGuard interface, enables IPv4 forwarding and installs subnet/interface-scoped NAT through the detected IPv4 uplink, including after boot. The panel keeps its existing service restrictions.
 
-Validation: Go tests and vet; live startup under the service restrictions on an Ubuntu 26.04.1 ARM64 KVM server; a real WireGuard handshake and three tunnel ICMP replies using a temporary client namespace on that host. The temporary client, key, interface, and namespace were removed afterward. External-device internet access, provider firewall traversal, reboot recovery, and other distribution live VPN paths remain unverified.
+- Existing keys, administrator credentials and client expiry settings are preserved. New clients remain enabled by default; an elapsed expiry intentionally disables a client.
+- Existing installations retain their networking. Use `--configure-network` to opt in, or `--no-network` for administrator-managed setup.
+- Active firewalld/UFW, custom filtering, multiple uplinks and conflicting configurations stop automatic preparation with an actionable error. Existing firewall rules are never flushed.
+- Provider firewall UDP access and public endpoint configuration remain explicit requirements.
+- Added regression checks for NAT scope, firewall conflicts, default-route ambiguity and installer network-bootstrap failures.
 
-[Installation guide](https://github.com/barkinarga/Wireguard-Simple/blob/readme/INSTALL.md). Existing accounts, keys, listener settings, and panel access policy are preserved by the installer.
+Ubuntu 26 ARM64 testing includes real WireGuard traffic, internet ping, DNS and HTTPS through a temporary same-host client namespace. External-device connectivity, complete machine reboot recovery and all-distribution firewall behavior are not yet fully validated.
