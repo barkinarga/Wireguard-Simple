@@ -118,11 +118,27 @@ ip -n client -4 route get 198.18.0.2 | grep -Eq 'dev wgtest.*src 10\.64\.0\.2'
 ip netns exec client curl --noproxy '*' -kfsS --max-time 5 https://198.18.0.2:8787/healthz
 # Other host services are still denied through the tunnel. A real listener
 # distinguishes firewall filtering from merely finding a closed port.
-python3 -m http.server 18787 --bind 0.0.0.0 > /test/private-service.log 2>&1 &
+python3 -u - > /test/private-service.log 2>&1 <<'PY' &
+import socket
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(('0.0.0.0', 18787))
+    server.listen()
+    print('Private test listener ready', flush=True)
+    while True:
+        conn, _ = server.accept()
+        with conn:
+            conn.recv(4096)
+            conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK')
+PY
 private_pid=$!
 trap 'kill "$panel_pid" "$private_pid" 2>/dev/null || true' EXIT
-for attempt in {1..20}; do if curl -fsS --max-time 1 http://127.0.0.1:18787/ >/dev/null 2>&1; then break; fi; sleep .1; done
-curl -fsS --max-time 1 http://127.0.0.1:18787/ >/dev/null
+for attempt in {1..50}; do
+  if curl --noproxy '*' -fsS --max-time 1 http://127.0.0.1:18787/ >/dev/null 2>&1; then break; fi
+  kill -0 "$private_pid" 2>/dev/null || { cat /test/private-service.log; exit 1; }
+  sleep .2
+done
+if ! curl --noproxy '*' -fsS --max-time 1 http://127.0.0.1:18787/ >/dev/null; then cat /test/private-service.log; exit 1; fi
 if ip netns exec client curl --noproxy '*' -fsS --max-time 2 http://198.18.0.2:18787/ >/dev/null 2>&1; then echo 'Unrelated host service unexpectedly reachable'; exit 1; fi
 # HTTP admission still controls VPN clients after the firewall permits TCP.
 # Restart only the disposable test panel to load each saved policy; VPN stays up.
