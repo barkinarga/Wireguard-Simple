@@ -122,26 +122,38 @@ func (f *firewall) fwAdd(ctx context.Context, scope []string, query, add, remove
 func normalizeFirewall(raw string) string {
 	lines := strings.Split(raw, "\n")
 	for i, line := range lines {
+		line = strings.TrimRight(line, " \t\r")
 		// Newer versions also annotate headers with (default, active).
 		// These runtime markers are not persistent rule configuration.
 		if line == strings.TrimSpace(line) && strings.HasSuffix(line, ")") {
 			if before, _, ok := strings.Cut(line, " ("); ok {
-				lines[i] = before
+				line = before
 			}
 		}
+		lines[i] = line
 	}
 	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
 
 // New permanent zone/policy objects require reload. Refuse to discard runtime-only state.
-func (f *firewall) reloadPreflight(ctx context.Context) error {
+func (f *firewall) reloadPreflight(ctx context.Context, uplink string) error {
 	for _, args := range [][]string{{"--list-all-zones"}, {"--list-all-policies"}, {"--direct", "--get-all-rules"}, {"--direct", "--get-all-passthroughs"}, {"--get-ipsets"}} {
 		live, err := f.call(ctx, args...)
 		if err != nil {
 			return errors.New("Cannot inspect firewalld runtime configuration")
 		}
 		saved, err := f.call(ctx, append([]string{"--permanent"}, args...)...)
-		if err != nil || normalizeFirewall(live) != normalizeFirewall(saved) {
+		if err != nil {
+			return errors.New("Cannot inspect permanent firewalld configuration")
+		}
+		equal := normalizeFirewall(live) == normalizeFirewall(saved)
+		if !equal && args[0] == "--list-all-zones" {
+			defaultZone, err := f.call(ctx, "--get-default-zone")
+			if err == nil {
+				equal = equivalentDefaultUplinkBinding(live, saved, defaultZone, uplink)
+			}
+		}
+		if !equal {
 			return errors.New("firewalld has runtime-only changes; configure VPN firewall manually without reloading")
 		}
 		if args[0] == "--get-ipsets" && live != "" {
@@ -149,6 +161,48 @@ func (f *firewall) reloadPreflight(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// An unbound uplink already belongs to the default zone. NetworkManager may
+// represent that same assignment as a runtime-only explicit interface binding.
+// Ignore only this redundant binding, never ports/rules or a different zone.
+func equivalentDefaultUplinkBinding(live, saved, defaultZone, uplink string) bool {
+	if !ValidInterface(uplink) || !firewallName(defaultZone) {
+		return false
+	}
+	savedZone, err := firewalldInterfaceZone(saved, uplink)
+	if err != nil || savedZone != "" {
+		return false
+	}
+	liveZone, err := firewalldInterfaceZone(live, uplink)
+	if err != nil || liveZone != defaultZone {
+		return false
+	}
+	lines := strings.Split(normalizeFirewall(live), "\n")
+	zone := ""
+	for i, line := range lines {
+		if line != "" && line == strings.TrimLeft(line, " \t") {
+			zone = line
+		}
+		if zone != defaultZone {
+			continue
+		}
+		before, after, ok := strings.Cut(strings.TrimSpace(line), ":")
+		if !ok || before != "interfaces" {
+			continue
+		}
+		var remaining []string
+		for _, iface := range strings.Fields(after) {
+			if iface != uplink {
+				remaining = append(remaining, iface)
+			}
+		}
+		lines[i] = line[:strings.Index(line, ":")+1]
+		if len(remaining) > 0 {
+			lines[i] += " " + strings.Join(remaining, " ")
+		}
+	}
+	return normalizeFirewall(strings.Join(lines, "\n")) == normalizeFirewall(saved)
 }
 
 func firewallName(s string) bool {
@@ -230,7 +284,7 @@ func firewalldInterfaceZone(raw, iface string) (string, error) {
 	return selected, nil
 }
 
-func (f *firewall) forwardingPolicy(ctx context.Context, iface, uplinkZone, subnet string) error {
+func (f *firewall) forwardingPolicy(ctx context.Context, iface, uplink, uplinkZone, subnet string) error {
 	var exists [2]bool
 	for i, prefix := range [][]string{nil, {"--permanent"}} {
 		zones, err := f.call(ctx, append(append([]string{}, prefix...), "--get-zones")...)
@@ -273,7 +327,7 @@ func (f *firewall) forwardingPolicy(ctx context.Context, iface, uplinkZone, subn
 		return errors.New("Managed firewalld objects differ between runtime and permanent configuration")
 	}
 	if !exists[0] {
-		if err := f.reloadPreflight(ctx); err != nil {
+		if err := f.reloadPreflight(ctx, uplink); err != nil {
 			return err
 		}
 		for _, object := range []struct{ kind, name string }{{"zone", firewallZone}, {"policy", firewallPolicy}} {
@@ -374,7 +428,7 @@ func (f *firewall) configure(ctx context.Context, s Server, uplink string, panel
 					return errors.New("VPN interface already has a custom firewalld zone; configure manually")
 				}
 			}
-			if err := f.forwardingPolicy(ctx, s.Interface, zone, subnet); err != nil {
+			if err := f.forwardingPolicy(ctx, s.Interface, uplink, zone, subnet); err != nil {
 				return err
 			}
 		}

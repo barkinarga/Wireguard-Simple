@@ -145,11 +145,38 @@ func TestFirewalldRuntimeDifferencesPreventReload(t *testing.T) {
 		}
 		return []byte("public\n ports: 22/tcp"), nil
 	}}
-	if err := f.reloadPreflight(context.Background()); err == nil {
+	if err := f.reloadPreflight(context.Background(), "eth0"); err == nil {
 		t.Fatal("runtime-only state would be lost")
 	}
 	if strings.Contains(strings.Join(calls, "\n"), "--reload") {
 		t.Fatal(calls)
+	}
+}
+
+func TestFirewalldDefaultUplinkBindingEquivalence(t *testing.T) {
+	saved := "public (default)\n  interfaces:\n  sources:\n  services: ssh\n  ports:\nwork\n  interfaces:\n  sources:\n  services:\n  ports:"
+	live := strings.Replace(saved, "  interfaces:", "  interfaces: eth0", 1)
+	if !equivalentDefaultUplinkBinding(live, saved, "public", "eth0") {
+		t.Fatal("normal NetworkManager default-zone binding rejected")
+	}
+	if !equivalentDefaultUplinkBinding(live, strings.ReplaceAll(saved, "interfaces:\n", "interfaces: \n"), "public", "eth0") {
+		t.Fatal("CentOS trailing spaces in empty fields must not change zone semantics")
+	}
+	for _, different := range []string{
+		strings.Replace(live, "  ports:", "  ports: 12345/tcp", 1),
+		strings.Replace(live, "services: ssh", "services: ssh cockpit", 1),
+		strings.Replace(live, "interfaces: eth0", "interfaces: eth0 eth1", 1),
+	} {
+		if equivalentDefaultUplinkBinding(different, saved, "public", "eth0") {
+			t.Fatal("real runtime-only change ignored", different)
+		}
+	}
+	if equivalentDefaultUplinkBinding(live, saved, "work", "eth0") {
+		t.Fatal("non-default zone binding accepted")
+	}
+	otherSaved := strings.Replace(saved, "work\n  interfaces:", "work\n  interfaces: eth0", 1)
+	if equivalentDefaultUplinkBinding(live, otherSaved, "public", "eth0") {
+		t.Fatal("permanent binding to another zone ignored")
 	}
 }
 

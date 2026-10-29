@@ -50,7 +50,7 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           version="${tag#v}"
-          if [[ -z $version ]]; then version=0.4.8-dev; fi
+          if [[ -z $version ]]; then version=0.4.9-dev; fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Build embedded interface
         run: |

@@ -38,6 +38,8 @@ else
   firewall-cmd --state
   firewall-cmd --add-port=22/tcp
   firewall-cmd --permanent --add-port=22/tcp
+  # Reproduce normal NetworkManager runtime binding on a CentOS cloud VM.
+  firewall-cmd --zone=public --add-interface=eth0
   # A runtime-only rule must prevent initial zone creation and reload.
   firewall-cmd --add-port=12345/tcp
   if "$binary" --data-dir /test/state --config-dir /test/wireguard --prepare-network > /test/runtime-only.log 2>&1; then cat /test/runtime-only.log; exit 1; fi
@@ -65,6 +67,8 @@ if [[ $manager == ufw ]]; then
   ufw status | grep -q '8787.*ALLOW'
   ufw status | grep -q '51820.*ALLOW'
 else
+  firewall-cmd --zone=public --query-interface=eth0
+  ! firewall-cmd --permanent --zone=public --query-interface=eth0
   for scope in '' --permanent; do
     firewall-cmd $scope --zone=public --query-port=22/tcp
     firewall-cmd $scope --zone=public --query-port=8787/tcp

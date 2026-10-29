@@ -246,6 +246,33 @@ mkdir "$TEST_DIR/network-failure"
 )
 printf '%s\n' 'PASS failed network bootstrap never reports successful installation'
 
+mkdir "$TEST_DIR/network-retry"
+(
+  prepare_case "$TEST_DIR/network-retry"
+  WGS_NETWORK=auto
+  systemctl() {
+    if [[ $1 == restart ]]; then
+      printf partial-control > "$WGS_STATE_DIR/control.db"
+      printf partial-config > "$WGS_CONFIG_DIR/wg0.conf"
+      return 1
+    fi
+    mock_service "$@"
+  }
+  if wgs_install >/dev/null 2>&1; then exit 1; fi
+  [[ $(cat "$WGS_STATE_DIR/network-managed") == 'WireGuard Simple managed network v1' ]]
+  wgs_rollback >/dev/null 2>&1
+  [[ ! -e $WGS_UNIT_DIR/wgsimple-network.service ]]
+  # A new installer process starts with these flags cleared, but partial data remains.
+  WGS_NETWORK_NEW=0; WGS_ROLLBACK=0; WGS_START_ATTEMPTED=0
+  WGS_BINARY_EXISTED=0; WGS_UNIT_EXISTED=0
+  systemctl() { mock_service "$@"; }
+  wgs_install >/dev/null
+  [[ -f $WGS_UNIT_DIR/wgsimple-network.service && -f $CASE_DIR/network-ready ]]
+  assert_equal "$(cat "$WGS_STATE_DIR/control.db")" partial-control
+  assert_equal "$(cat "$WGS_CONFIG_DIR/wg0.conf")" partial-config
+)
+printf '%s\n' 'PASS normal retry resumes requested networking after a failed fresh install'
+
 # Exercise the real readiness function: other installer cases mock it above.
 for transport in https http; do
   (

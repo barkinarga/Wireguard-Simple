@@ -301,13 +301,18 @@ wgs_finish() {
   exit "$status"
 }
 wgs_install() {
-  local destination=$WGS_BIN_DIR/wgsimple unit=$WGS_UNIT_DIR/wgsimple.service
-  [[ ! -L $destination && ! -L $unit && ! -L $WGS_STATE_DIR && ! -L $WGS_CONFIG_DIR && ! -L $WGS_UNIT_DIR/wgsimple-network.service ]] || { wgs_fail 'Symbolic link detected in installation targets; no automatic changes made'; return 1; }
+  local destination=$WGS_BIN_DIR/wgsimple unit=$WGS_UNIT_DIR/wgsimple.service marker=$WGS_STATE_DIR/network-managed
+  [[ ! -L $destination && ! -L $unit && ! -L $WGS_STATE_DIR && ! -L $WGS_CONFIG_DIR && ! -L $WGS_UNIT_DIR/wgsimple-network.service && ! -L $marker ]] || { wgs_fail 'Symbolic link detected in installation targets; no automatic changes made'; return 1; }
   if systemctl is-active --quiet wgsimple.service; then WGS_WAS_ACTIVE=1; fi
   if systemctl is-enabled --quiet wgsimple.service; then WGS_WAS_ENABLED=1; fi
   if [[ -f $destination ]]; then WGS_BINARY_EXISTED=1; cp -p -- "$destination" "$WGS_TEMP/previous-binary"; fi
   if [[ -f $unit ]]; then WGS_UNIT_EXISTED=1; cp -p -- "$unit" "$WGS_TEMP/previous-unit"; fi
-  if [[ $WGS_NETWORK == on || ( $WGS_NETWORK == auto && $WGS_UNIT_EXISTED == 0 && ! -e $WGS_STATE_DIR/control.db && ! -e $WGS_CONFIG_DIR/$WGS_INTERFACE.conf ) ]]; then
+  local managed_retry=0
+  if [[ -f $marker ]]; then
+    [[ $(< "$marker") == 'WireGuard Simple managed network v1' ]] || { wgs_fail 'Unrecognized managed network marker; configure networking explicitly.'; return 1; }
+    managed_retry=1
+  elif [[ -e $marker ]]; then wgs_fail 'Managed network marker must be a regular file'; return 1; fi
+  if [[ $WGS_NETWORK == on || ( $WGS_NETWORK == auto && ( $managed_retry == 1 || ( $WGS_UNIT_EXISTED == 0 && ! -e $WGS_STATE_DIR/control.db && ! -e $WGS_CONFIG_DIR/$WGS_INTERFACE.conf ) ) ) ]]; then
     if [[ ! -e $WGS_UNIT_DIR/wgsimple-network.service ]]; then WGS_NETWORK_NEW=1; fi
   fi
   WGS_ROLLBACK=1
@@ -321,6 +326,11 @@ wgs_install() {
   wgs_replace_binary "$WGS_BINARY"
   if ((WGS_UNIT_EXISTED == 0)); then wgs_write_unit; fi
   if ((WGS_NETWORK_NEW)); then wgs_network_unit; fi
+  if [[ $WGS_NETWORK != off && ( $WGS_NETWORK_NEW == 1 || -f $WGS_UNIT_DIR/wgsimple-network.service ) ]]; then
+    # Keep this intent across a failed first setup so a normal retry resumes it.
+    printf '%s\n' 'WireGuard Simple managed network v1' > "$marker"
+    chmod 0600 "$marker"
+  fi
   wgs_restore_labels "$unit" "$WGS_STATE_DIR" "$WGS_CONFIG_DIR"
   systemctl daemon-reload
   if ((WGS_START)) && [[ $WGS_NETWORK != off && ( $WGS_NETWORK_NEW == 1 || -f $WGS_UNIT_DIR/wgsimple-network.service ) ]]; then
