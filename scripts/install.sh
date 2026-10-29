@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Target Linux server only. Safe to source for isolated tests.
 set -euo pipefail
+# Resolve the sibling module without dirname, which may not be installed yet.
+wgs_script_dir=${BASH_SOURCE[0]%/*}
+if [[ $wgs_script_dir == "${BASH_SOURCE[0]}" ]]; then wgs_script_dir=.; fi
+source "$wgs_script_dir/dependencies.sh"
 
 WGS_BIN_DIR=/usr/local/bin
 WGS_STATE_DIR=/var/lib/wgsimple
@@ -28,7 +32,6 @@ WGS_QUICK_WAS_ENABLED=0
 WGS_MAJOR=
 WGS_FIREWALL_STATUS=
 
-wgs_message() { printf '%s\n' "$*"; }
 wgs_heading() {
   local color=$1 title=$2
   printf '\n'
@@ -83,7 +86,6 @@ wgs_panel_links() {
     *) wgs_color 36 "Panel:        https://$host:$port" ;;
   esac
 }
-wgs_fail() { printf 'Error: %s\n' "$*" >&2; return 1; }
 wgs_usage() {
   cat <<'HELP'
 WireGuard Simple — Linux installation
@@ -131,27 +133,6 @@ wgs_arguments() {
 wgs_arch() {
   case $(uname -m) in x86_64|amd64) printf amd64 ;; aarch64|arm64) printf arm64 ;; *) wgs_fail 'Supported architectures: amd64 and arm64'; return 1 ;; esac
 }
-wgs_distribution() {
-  local id=$1 version=$2 name=$3
-  WGS_DISTRO=$id
-  WGS_MAJOR=${version%%.*}
-  case $id in
-    debian|ubuntu) WGS_FAMILY=debian; WGS_MANAGER=apt-get; WGS_IP_PACKAGE=iproute2 ;;
-    rhel|rocky|almalinux|centos)
-      [[ $WGS_MAJOR =~ ^[0-9]+$ ]] && ((WGS_MAJOR >= 8)) || { wgs_fail 'Enterprise Linux 8 or newer is required'; return 1; }
-      if [[ $id == centos ]] && { [[ $name != *Stream* ]] || ((WGS_MAJOR < 9)); }; then
-        wgs_fail 'Use CentOS Stream 9 or newer; CentOS Linux 7/8 and Stream 8 are end-of-life'; return 1
-      fi
-      WGS_FAMILY=rhel; WGS_MANAGER=dnf; WGS_IP_PACKAGE=iproute ;;
-    fedora) WGS_FAMILY=fedora; WGS_MANAGER=dnf; WGS_IP_PACKAGE=iproute ;;
-    *) wgs_fail 'Supported distributions: Debian, Ubuntu, RHEL, CentOS Stream, AlmaLinux, Rocky Linux, Fedora'; return 1 ;;
-  esac
-}
-wgs_package_manager() {
-  if command -v "$WGS_MANAGER" >/dev/null 2>&1; then return 0; fi
-  if [[ $WGS_FAMILY == rhel ]] && command -v yum >/dev/null 2>&1; then WGS_MANAGER=yum; return 0; fi
-  wgs_fail "Package manager $WGS_MANAGER is unavailable; immutable/ostree images are not supported"
-}
 wgs_platform() {
   [[ $(uname -s) == Linux ]] || { wgs_fail 'This installer is for Linux servers only; it does not run on Windows'; return 1; }
   if [[ -r /proc/sys/kernel/osrelease ]] && grep -qi microsoft /proc/sys/kernel/osrelease; then
@@ -174,36 +155,6 @@ wgs_validate_binary() {
   [[ $magic == 7f454c460201 ]] || { wgs_fail 'File is not a 64-bit Linux ELF application'; return 1; }
   machine=$(od -An -tx1 -j18 -N2 "$WGS_BINARY" | tr -d ' \n')
   case "$arch:$machine" in amd64:3e00|arm64:b700) ;; *) wgs_fail 'Application architecture does not match the server'; return 1 ;; esac
-}
-wgs_dependencies() {
-  local -a packages=()
-  if ! command -v wg >/dev/null 2>&1 || ! command -v wg-quick >/dev/null 2>&1; then packages+=(wireguard-tools); fi
-  command -v ip >/dev/null 2>&1 || packages+=("$WGS_IP_PACKAGE")
-  command -v curl >/dev/null 2>&1 || packages+=(curl)
-  command -v modprobe >/dev/null 2>&1 || packages+=(kmod)
-  if [[ $WGS_NETWORK != off ]]; then
-    command -v nft >/dev/null 2>&1 || packages+=(nftables)
-    if ! command -v sysctl >/dev/null 2>&1; then
-      if [[ $WGS_FAMILY == debian ]]; then packages+=(procps); else packages+=(procps-ng); fi
-    fi
-  fi
-  if ((${#packages[@]} == 0)); then return 0; fi
-  packages+=(ca-certificates)
-  if ((WGS_CHECK)); then wgs_message "Missing packages via $WGS_MANAGER: ${packages[*]} (check only)"; return 0; fi
-  ((WGS_DEPS)) || { wgs_fail "Missing packages: ${packages[*]}. Install them yourself or omit --no-deps"; return 1; }
-  wgs_message "Installing required packages via $WGS_MANAGER: ${packages[*]}"
-  if [[ $WGS_FAMILY == debian ]]; then
-    apt-get update || return 1
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${packages[@]}" || return 1
-  elif ! "$WGS_MANAGER" install -y --setopt=install_weak_deps=False "${packages[@]}"; then
-    wgs_fail 'Package installation failed. Check enabled distribution repositories and RHEL subscription access. Extra repositories are never enabled automatically.'; return 1
-  fi
-  local tool
-  local -a tools=(wg wg-quick ip curl modprobe)
-  if [[ $WGS_NETWORK != off ]]; then tools+=(nft sysctl); fi
-  for tool in "${tools[@]}"; do
-    command -v "$tool" >/dev/null 2>&1 || { wgs_fail "Required tool is still unavailable after installation: $tool"; return 1; }
-  done
 }
 wgs_kernel_loaded() { [[ -d /sys/module/wireguard ]]; }
 wgs_kernel() {
@@ -409,21 +360,26 @@ wgs_main() {
   wgs_arguments "$@" || result=$?
   if ((result == 2)); then return 0; elif ((result != 0)); then return "$result"; fi
   export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+  local -a bootstrap_options=()
+  if ((WGS_CHECK)); then bootstrap_options+=(--check); fi
+  if ((WGS_DEPS == 0)); then bootstrap_options+=(--no-deps); fi
+  if [[ $WGS_NETWORK == off ]]; then bootstrap_options+=(--no-network); elif [[ $WGS_NETWORK == on ]]; then bootstrap_options+=(--configure-network); fi
+  wgs_bootstrap_dependencies "${bootstrap_options[@]}"
   wgs_platform
   arch=$(wgs_arch)
   if [[ -z $WGS_BINARY ]]; then
     script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
     if [[ -f $script_dir/wgsimple ]]; then WGS_BINARY=$script_dir/wgsimple; else WGS_BINARY=$script_dir/../bin/wgsimple-linux-$arch; fi
   fi
+  wgs_dependencies
   wgs_validate_binary "$arch"
-  if ((WGS_CHECK)); then wgs_dependencies; wgs_kernel; wgs_message "Check complete: $WGS_DISTRO / $arch / $WGS_INTERFACE. No changes made."; return 0; fi
+  if ((WGS_CHECK)); then wgs_kernel; wgs_message "Check complete: $WGS_DISTRO / $arch / $WGS_INTERFACE. No changes made."; return 0; fi
   [[ $EUID -eq 0 ]] || { wgs_fail 'Run with sudo on the target Linux server'; return 1; }
   umask 077
   WGS_TEMP=$(mktemp -d /tmp/wgsimple-install.XXXXXX)
   trap wgs_finish EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
-  wgs_dependencies
   wgs_kernel
   wgs_install
 }

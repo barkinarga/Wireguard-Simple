@@ -3,6 +3,8 @@
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 source "$ROOT/scripts/install.sh"
+wgs_ca_available() { return 0; }
+wgs_is_root() { return 0; }
 
 mock_service() {
   local operation=$1; shift
@@ -117,7 +119,7 @@ printf '%s\n' 'PASS architecture selection and actual ELF/Windows validation'
   WGS_DEPS=1
   wgs_dependencies >/dev/null
   [[ $(wc -l < "$dependency_log") -eq 2 ]]
-  grep -q -- '--no-install-recommends wireguard-tools iproute2 curl kmod nftables procps ca-certificates' "$dependency_log"
+  grep -q -- '--no-install-recommends wireguard-tools iproute2 curl kmod systemd openssl nftables procps coreutils grep gawk sed tar gzip ca-certificates' "$dependency_log"
 )
 printf '%s\n' 'PASS dependency detection, no-deps and read-only check (mock package manager)'
 

@@ -27,7 +27,7 @@ test('produced installer has a verified payload with both correct Linux binaries
   const tar = gunzipSync(payload);
   const listed = spawnSync('tar', ['-tzf', '-'], { input: payload, maxBuffer: 1024 * 1024 });
   assert.equal(listed.status, 0, listed.stderr?.toString() || listed.error?.message);
-  assert.deepEqual(new Set(listed.stdout.toString().trim().split(/\r?\n/)), new Set(['install.sh', 'wgsimple-amd64', 'wgsimple-arm64', 'INSTALL.md', 'THIRD_PARTY_NOTICES.md', 'LICENSE']));
+  assert.deepEqual(new Set(listed.stdout.toString().trim().split(/\r?\n/)), new Set(['install.sh', 'dependencies.sh', 'wgsimple-amd64', 'wgsimple-arm64', 'INSTALL.md', 'THIRD_PARTY_NOTICES.md', 'LICENSE']));
   const entries = new Map();
   for (let offset = 0; offset < tar.length && tar[offset] !== 0;) {
     const name = tar.subarray(offset, offset + 100).toString().replace(/\0.*$/s, '');
@@ -42,5 +42,6 @@ test('produced installer has a verified payload with both correct Linux binaries
     assert.deepEqual(packed, await readFile(new URL(`../bin/wgsimple-linux-${arch}`, import.meta.url)));
   }
   assert.deepEqual(entries.get('install.sh'), await readFile(new URL('../scripts/install.sh', import.meta.url)));
+  assert.deepEqual(entries.get('dependencies.sh'), await readFile(new URL('../scripts/dependencies.sh', import.meta.url)));
   assert.ok(entries.has('INSTALL.md') && entries.has('THIRD_PARTY_NOTICES.md'));
 });

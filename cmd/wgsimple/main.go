@@ -14,7 +14,7 @@ import (
 	"wireguard-simple/internal/web"
 )
 
-var version = "0.4.7-dev"
+var version = "0.4.8-dev"
 
 func run() error {
 	mode := flag.String("mode", "live", "demo (no network changes) or live (Linux only)")

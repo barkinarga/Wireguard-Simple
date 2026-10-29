@@ -46,3 +46,7 @@ The command extracts the installer into a temporary directory, checks architectu
 ## Firewall integration checks
 
 Dedicated disposable privileged CI containers exercise Ubuntu UFW and Fedora firewalld with private network namespaces, actual WireGuard handshakes, scoped NAT/forwarding, external HTTPS panel probes, reload persistence and preservation of an existing SSH port permission. No host networking or writable host-system mounts are used. These tests do not validate every distribution, cloud-provider firewall, physical host reboot, custom policy or concurrent administrator firewall changes. Do not edit firewall rules concurrently with installation.
+
+## Minimal images and executable-package bootstrap
+
+Platform CI runs the actual generated executable package header with a non-installing smoke payload on Debian 13, Ubuntu 24.04, RPM-family 9 distributions, CentOS Stream 10 and Fedora 43. The CentOS 10 case explicitly starts without tar, verifies no-deps/check do not install it, then verifies automatic prerequisite installation and real gzip/tar extraction. Debian additionally exercises actual bsdtar extraction after GNU tar is hidden in the disposable container. These checks require no privileged container, host networking, WireGuard interface or service startup; full VM/kernel/provider behavior is a separate validation boundary.

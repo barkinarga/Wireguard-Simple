@@ -1,11 +1,11 @@
-# WireGuard Simple v0.4.7
+# WireGuard Simple v0.4.8
 
-Configure supported active local firewalls during installation while retaining the provider-firewall reminders.
+Fix installation on minimal CentOS Stream 10 hosts that do not have tar, and check prerequisites before unpacking the installer.
 
-- Detect UFW/firewalld, preserve default policies and SSH rules, and add scoped IPv4 permissions for the actual panel TCP and saved WireGuard UDP ports. Loopback panels do not receive an external TCP permission. Disabled firewalls stay disabled.
-- Add native UFW route permissions or a dedicated firewalld VPN zone/egress policy for the managed subnet and uplink. Keep NAT scoped in the application-owned nftables table.
-- Preserve existing rules on repeat setup and roll back new additions when a firewall operation fails. Refuse mixed/custom/ambiguous configurations instead of resetting or bypassing them.
-- Before the initial firewalld object reload, compare runtime/permanent configuration and refuse to discard runtime-only changes. Never run complete-reload or runtime-to-permanent.
-- Keep manual provider-firewall warnings. --no-network opts out of automatic firewall and VPN network changes; --no-start does not change firewall state.
+- Embed one shared dependency module in the executable package header and payload. Check archive/decompression, checksum, core utilities, text tools, CA certificates, systemctl and VPN/network commands before using them.
+- Install missing packages with the supported distro's package manager, then verify commands and the CA bundle. Refresh repository metadata and retry one failed transaction once, without adding repositories or disabling TLS/package verification.
+- Use an already-installed bsdtar when GNU tar/gzip are missing, or when GNU extraction fails. Always verify the archive checksum before extraction; never run a partially extracted installer.
+- Keep --check and --no-deps from installing packages. Preserve existing curl providers and honor --no-network and --configure-network.
+- Extend platform CI to CentOS Stream 10 and run the real self-extracting header against minimal distro containers, including missing-tar, no-deps/check and actual bsdtar extraction scenarios. The smoke payload verifies prerequisites without creating app services, VPN interfaces or application data.
 
-Tests cover manager detection, custom-rule refusal, native command scoping, existing permissions, rollback and installer behavior. Dedicated Linux container checks exercise real UFW/firewalld, WireGuard packets, panel HTTPS access, VPN forwarding/NAT and reload persistence before release publication.
+Isolated tests cover transient/permanent package-manager failures, post-install missing commands, no-deps/check and extractor fallback. Existing application, installer, package integrity and real UFW/firewalld packet tests remain release gates.

@@ -7,6 +7,7 @@ import path from 'node:path';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+const dependencyHelper = readFileSync(new URL('./dependencies.sh', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const updateHelper = readFileSync(new URL('./update-check.sh', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const packageVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
@@ -39,14 +40,10 @@ if [[ $1 == --help || $1 == -h ]]; then
   exit 0
 fi
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
-[[ $(uname -s) == Linux ]] || { printf '%s\n' 'Run this installer on the target Linux server only.' >&2; exit 1; }
+@DEPENDENCY_HELPER@
+wgs_bootstrap_dependencies "$@"
 case $(uname -m) in x86_64|amd64) arch=amd64 ;; aarch64|arm64) arch=arm64 ;; *) printf '%s\n' 'Unsupported architecture.' >&2; exit 1 ;; esac
-if [[ -r /proc/sys/kernel/osrelease ]] && grep -qi microsoft /proc/sys/kernel/osrelease; then printf '%s\n' 'Use the target Linux server instead of WSL.' >&2; exit 1; fi
-if ((EUID != 0)); then
-  check=0
-  for arg in "$@"; do if [[ $arg == --check ]]; then check=1; fi; done
-  ((check)) || { printf '%s\n' 'Install using sudo bash wgsimple-install.run.' >&2; exit 1; }
-fi
+if ((EUID != 0 && WGS_CHECK == 0)); then printf '%s\n' 'Install using sudo bash wgsimple-install.run.' >&2; exit 1; fi
 umask 077
 temporary=$(mktemp -d /tmp/wgsimple-package.XXXXXX)
 cleanup() {
@@ -65,16 +62,17 @@ payload_line=$(awk '$0 == "__WGS_PAYLOAD__" { print NR + 1; exit }' "$0")
 [[ $payload_line =~ ^[0-9]+$ ]] || { printf '%s\n' 'Invalid package header.' >&2; exit 1; }
 tail -n +"$payload_line" "$0" > "$temporary/payload.tar.gz"
 printf '%s  %s\n' '@PAYLOAD_SHA256@' "$temporary/payload.tar.gz" | sha256sum --check --status - || { printf '%s\n' 'Package integrity check failed; nothing installed.' >&2; exit 1; }
-tar --extract --gzip --file "$temporary/payload.tar.gz" --directory "$temporary" --no-same-owner --no-same-permissions
+wgs_extract_payload "$temporary/payload.tar.gz" "$temporary"
 bash "$temporary/install.sh" --binary "$temporary/wgsimple-$arch" "$@"
 exit 0
 __WGS_PAYLOAD__
-`.replace('@PAYLOAD_SHA256@', payloadHash).replace('@UPDATE_HELPER@', updateHelper).replace('@PACKAGE_VERSION@', packageVersion).replace('[[ $1 == --help || $1 == -h ]]', '[[ ${1:-} == --help || ${1:-} == -h ]]');
+`.replace('@DEPENDENCY_HELPER@', () => dependencyHelper).replace('@PAYLOAD_SHA256@', payloadHash).replace('@UPDATE_HELPER@', () => updateHelper).replace('@PACKAGE_VERSION@', packageVersion).replace('[[ $1 == --help || $1 == -h ]]', '[[ ${1:-} == --help || ${1:-} == -h ]]');
 }
 
 export async function buildInstaller() {
   const files = [
     ['install.sh', 'scripts/install.sh', 0o700],
+    ['dependencies.sh', 'scripts/dependencies.sh', 0o600],
     ['wgsimple-amd64', 'bin/wgsimple-linux-amd64', 0o700],
     ['wgsimple-arm64', 'bin/wgsimple-linux-arm64', 0o700],
     ['INSTALL.md', 'INSTALL.md', 0o600],
@@ -82,8 +80,9 @@ export async function buildInstaller() {
     ['LICENSE', 'LICENSE', 0o600],
   ];
   const entries = await Promise.all(files.map(async ([name, source, mode]) => ({ name, data: await readFile(path.join(root, source)), mode })));
-  const installer = entries.find(entry => entry.name === 'install.sh');
-  if (installer.data.includes(13)) throw new Error('Linux installer must use LF line endings');
+  for (const entry of entries.filter(entry => entry.name.endsWith('.sh'))) {
+    if (entry.data.includes(13)) throw new Error(`Linux script must use LF line endings: ${entry.name}`);
+  }
   for (const [name, machine] of [['wgsimple-amd64', 62], ['wgsimple-arm64', 183]]) {
     const bytes = entries.find(entry => entry.name === name).data;
     if (bytes.length < 20 || !bytes.subarray(0, 6).equals(Buffer.from([127, 69, 76, 70, 2, 1])) || bytes.readUInt16LE(18) !== machine) throw new Error(`Wrong Linux architecture: ${name}`);

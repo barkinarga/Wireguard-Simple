@@ -141,3 +141,11 @@ To use a trusted custom certificate instead of the automatic self-signed certifi
 ## Ubuntu 26 startup compatibility
 
 Version 0.3.2 starts a new managed interface using direct `ip` and `wg` commands. This avoids a reproduced conflict between the distribution wg-quick AppArmor child-profile transitions and NoNewPrivileges. AppArmor and the service restrictions remain enabled. Existing interfaces still use `wg syncconf` for updates. The generated wg-quick-compatible configuration is retained for external startup after reboot. Fresh interfaces with client subnets outside the server VPN network require external setup and import; the panel does not silently omit their routes.
+
+## Minimal server prerequisites
+
+The executable installer checks dependencies before its first extraction or release download. On a normal run it installs missing core utilities, grep/awk/sed, tar+gzip (or uses an existing bsdtar), curl and CA certificates, systemctl, WireGuard tools and the applicable IPv4 network tools. Existing callable curl providers, including curl-minimal, are preserved. Package setup uses only enabled distribution repositories and retries a failed transaction once after a metadata refresh. It verifies required commands and the CA bundle before touching application services or data.
+
+If repositories, connectivity or subscription access cannot provide the packages, setup stops with an actionable error. It never adds unrequested repositories, bypasses package/TLS verification, skips checksum checks or executes a partially unpacked payload. `--no-deps` refuses missing prerequisites; `--check` lists them without installing. If tools needed to inspect/unpack the package itself are missing during `--check`, it stops after reporting them. The outer download command still requires curl/sudo to already be usable, or you can transfer the installer file over SSH and run it as root.
+
+CentOS Stream 10 is covered by an executable-header regression test that starts without tar. Container checks exercise dependency setup and package extraction, not a complete booted VM or every provider image. WireGuard-capable kernel and running systemd requirements remain unchanged.

@@ -50,7 +50,7 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           version="${tag#v}"
-          if [[ -z $version ]]; then version=0.4.7-dev; fi
+          if [[ -z $version ]]; then version=0.4.8-dev; fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Build embedded interface
         run: |
@@ -77,6 +77,8 @@ jobs:
           bash -n scripts/install.sh
           bash -n scripts/install-linux.sh
           bash -n scripts/update-check.sh
+          bash -n scripts/dependencies.sh
+          bash tests/dependencies-test.sh
           bash tests/install-test.sh
           bash tests/platform-test.sh
           bash tests/update-test.sh
@@ -112,6 +114,8 @@ jobs:
             image: almalinux:9
           - name: CentOS Stream 9
             image: quay.io/centos/centos:stream9
+          - name: CentOS Stream 10
+            image: quay.io/centos/centos:stream10
           - name: Fedora 43
             image: registry.fedoraproject.org/fedora:43
     steps:
@@ -123,18 +127,11 @@ jobs:
           PLATFORM_IMAGE: ${{ matrix.image }}
         shell: bash
         run: |
+          node tests/build-bootstrap-fixture.mjs
           # No host networking, privileged mode, NET_ADMIN, or service startup.
           docker run --rm --cap-drop=NET_RAW \
             --volume "$GITHUB_WORKSPACE:/workspace:ro" \
-            "$PLATFORM_IMAGE" bash -ec '
-              source /workspace/scripts/install.sh
-              source /etc/os-release
-              wgs_distribution "$ID" "${VERSION_ID:-}" "$NAME"
-              wgs_package_manager
-              wgs_dependencies
-              wg --version
-              command -v wg-quick ip curl modprobe
-            '
+            "$PLATFORM_IMAGE" bash /workspace/tests/bootstrap-platform-test.sh
 
   firewall-integration:
     name: Firewall (${{ matrix.manager }})

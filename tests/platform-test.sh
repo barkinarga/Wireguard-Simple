@@ -3,6 +3,8 @@
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 source "$ROOT/scripts/install.sh"
+wgs_ca_available() { return 0; }
+wgs_is_root() { return 0; }
 assert_equal() { [[ $1 == "$2" ]] || { printf 'Expected [%s], got [%s]\n' "$2" "$1" >&2; exit 1; }; }
 
 for id in debian ubuntu rhel centos almalinux rocky fedora; do
@@ -38,9 +40,9 @@ for id in debian ubuntu rhel centos almalinux rocky fedora; do
     WGS_DEPS=1; wgs_dependencies >/dev/null
     if [[ $WGS_FAMILY == debian ]]; then
       assert_equal "${calls[0]}" 'apt-get update'
-      assert_equal "${calls[1]}" 'apt-get install -y --no-install-recommends wireguard-tools iproute2 curl kmod nftables procps ca-certificates'
+      assert_equal "${calls[1]}" 'apt-get install -y --no-install-recommends wireguard-tools iproute2 curl kmod systemd openssl nftables procps coreutils grep gawk sed tar gzip ca-certificates'
     else
-      assert_equal "${calls[0]}" 'dnf install -y --setopt=install_weak_deps=False wireguard-tools iproute curl kmod nftables procps-ng ca-certificates'
+      assert_equal "${calls[0]}" 'dnf install -y --setopt=install_weak_deps=False wireguard-tools iproute curl kmod systemd openssl nftables procps-ng coreutils grep gawk sed tar gzip ca-certificates'
     fi
   )
 done
@@ -60,8 +62,8 @@ printf '%s\n' 'PASS apt/dnf package plans, check-only and no-deps for every dist
   command() { if [[ ${1:-} == -v ]]; then [[ $2 == curl || $2 == modprobe ]]; return; fi; builtin command "$@"; }
   dnf() { calls+=("$*"); return 1; }
   if wgs_dependencies >/dev/null 2>&1; then exit 1; fi
-  assert_equal "${#calls[@]}" 1
-  assert_equal "${calls[0]}" 'install -y --setopt=install_weak_deps=False wireguard-tools iproute nftables procps-ng ca-certificates'
+  assert_equal "${#calls[@]}" 3
+  assert_equal "${calls[0]}" 'install -y --setopt=install_weak_deps=False wireguard-tools iproute systemd openssl nftables procps-ng coreutils grep gawk sed tar gzip ca-certificates'
 )
 printf '%s\n' 'PASS RHEL yum fallback, repository failure stops without adding repos, existing curl preserved'
 
