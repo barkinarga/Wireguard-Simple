@@ -5,6 +5,7 @@ set -euo pipefail
 wgs_script_dir=${BASH_SOURCE[0]%/*}
 if [[ $wgs_script_dir == "${BASH_SOURCE[0]}" ]]; then wgs_script_dir=.; fi
 source "$wgs_script_dir/dependencies.sh"
+source "$wgs_script_dir/panel-output.sh"
 
 WGS_BIN_DIR=/usr/local/bin
 WGS_STATE_DIR=/var/lib/wgsimple
@@ -32,19 +33,6 @@ WGS_QUICK_WAS_ENABLED=0
 WGS_MAJOR=
 WGS_FIREWALL_STATUS=
 
-wgs_heading() {
-  local color=$1 title=$2
-  printf '\n'
-  wgs_color "$color" "$title"
-}
-wgs_color() {
-  local color=$1 title=$2
-  if [[ -t 1 && ${TERM:-dumb} != dumb && ! -v NO_COLOR ]]; then
-    printf '\033[1;%sm%s\033[0m\n' "$color" "$title"
-  else
-    printf '%s\n' "$title"
-  fi
-}
 wgs_setup_token() {
   local token_file=$WGS_STATE_DIR/setup-token token
   # Print only the expected token format, never terminal control sequences.
@@ -54,37 +42,6 @@ wgs_setup_token() {
       wgs_color 36 "Setup token:  $token"
     fi
   fi
-}
-wgs_panel_links() {
-  local command_line listen=127.0.0.1:8787 host port scheme=https panel_ip
-  # Inspect effective service arguments; never execute or source their contents.
-  command_line=$(systemctl show --property=ExecStart --value wgsimple.service 2>/dev/null) || command_line=
-  if [[ -z $command_line && -r $WGS_UNIT_DIR/wgsimple.service ]]; then
-    command_line=$(< "$WGS_UNIT_DIR/wgsimple.service")
-  fi
-  if [[ $command_line =~ --listen[=[:space:]]+([^[:space:]\;]+) ]]; then
-    listen=${BASH_REMATCH[1]}
-  fi
-  if [[ $listen =~ ^(\[[0-9a-fA-F:]+\]|[a-zA-Z0-9._-]*):([0-9]+)$ ]]; then
-    host=${BASH_REMATCH[1]}
-    port=${BASH_REMATCH[2]}
-  else
-    wgs_message 'Panel:        See the service listen address.'
-    return
-  fi
-  case $host in
-    localhost|127.*|'[::1]')
-      if [[ $command_line != *--tls-cert* ]]; then scheme=http; fi
-      wgs_color 36 "Local:        $scheme://$host:$port"
-      ;;
-    ''|0.0.0.0|'[::]')
-      panel_ip=$(ip -o -4 addr show scope global 2>/dev/null | awk '{split($4,a,"/"); print a[1]; exit}') || panel_ip=
-      if [[ ! $panel_ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then panel_ip=SERVER_IP; fi
-      wgs_color 36 "Panel:        https://$panel_ip:$port"
-      wgs_color 36 "Local:        https://127.0.0.1:$port"
-      ;;
-    *) wgs_color 36 "Panel:        https://$host:$port" ;;
-  esac
 }
 wgs_usage() {
   cat <<'HELP'

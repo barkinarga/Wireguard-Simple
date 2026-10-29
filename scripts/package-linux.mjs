@@ -8,6 +8,7 @@ import path from 'node:path';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const dependencyHelper = readFileSync(new URL('./dependencies.sh', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+const panelOutputHelper = readFileSync(new URL('./panel-output.sh', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const updateHelper = readFileSync(new URL('./update-check.sh', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const packageVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
@@ -54,6 +55,7 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+@PANEL_OUTPUT_HELPER@
 @UPDATE_HELPER@
 update_result=0
 wgs_check_release "$temporary" '@PACKAGE_VERSION@' "$@" || update_result=$?
@@ -66,13 +68,14 @@ wgs_extract_payload "$temporary/payload.tar.gz" "$temporary"
 bash "$temporary/install.sh" --binary "$temporary/wgsimple-$arch" "$@"
 exit 0
 __WGS_PAYLOAD__
-`.replace('@DEPENDENCY_HELPER@', () => dependencyHelper).replace('@PAYLOAD_SHA256@', payloadHash).replace('@UPDATE_HELPER@', () => updateHelper).replace('@PACKAGE_VERSION@', packageVersion).replace('[[ $1 == --help || $1 == -h ]]', '[[ ${1:-} == --help || ${1:-} == -h ]]');
+`.replace('@DEPENDENCY_HELPER@', () => dependencyHelper).replace('@PAYLOAD_SHA256@', payloadHash).replace('@PANEL_OUTPUT_HELPER@', () => panelOutputHelper).replace('@UPDATE_HELPER@', () => updateHelper).replace('@PACKAGE_VERSION@', packageVersion).replace('[[ $1 == --help || $1 == -h ]]', '[[ ${1:-} == --help || ${1:-} == -h ]]');
 }
 
 export async function buildInstaller() {
   const files = [
     ['install.sh', 'scripts/install.sh', 0o700],
     ['dependencies.sh', 'scripts/dependencies.sh', 0o600],
+    ['panel-output.sh', 'scripts/panel-output.sh', 0o600],
     ['wgsimple-amd64', 'bin/wgsimple-linux-amd64', 0o700],
     ['wgsimple-arm64', 'bin/wgsimple-linux-arm64', 0o700],
     ['INSTALL.md', 'INSTALL.md', 0o600],

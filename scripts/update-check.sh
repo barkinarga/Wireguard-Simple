@@ -48,7 +48,8 @@ wgs_check_release() {
   if (($# == 0)); then
     installed=$(wgs_installed_version) || installed=
     if wgs_release_version "$installed" && ! wgs_version_newer "$latest" "$installed"; then
-      printf 'WireGuard Simple %s is already up to date.\n' "$installed"
+      printf 'WireGuard Simple %s is already up to date.\n\n' "$installed"
+      wgs_panel_links
       return 10
     fi
   fi

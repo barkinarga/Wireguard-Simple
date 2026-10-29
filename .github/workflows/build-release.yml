@@ -50,7 +50,7 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           version="${tag#v}"
-          if [[ -z $version ]]; then version=0.4.9-dev; fi
+          if [[ -z $version ]]; then version=0.4.10-dev; fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Build embedded interface
         run: |
@@ -76,6 +76,7 @@ jobs:
         run: |
           bash -n scripts/install.sh
           bash -n scripts/install-linux.sh
+          bash -n scripts/panel-output.sh
           bash -n scripts/update-check.sh
           bash -n scripts/dependencies.sh
           bash tests/dependencies-test.sh

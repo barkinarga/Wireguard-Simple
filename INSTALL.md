@@ -60,7 +60,7 @@ Only a **loopback-bound** service may remain plaintext HTTP. A public TLS listen
 
 ## 3. Prepare VPN connectivity
 
-An empty **Settings → Endpoint** is filled automatically when exactly one public IPv4 address is assigned to the server outside the managed VPN interface. Saved endpoints are preserved. NAT-only hosts, multiple public IPv4 addresses or detection failures require a manual public IP/domain; no external IP lookup service is contacted.
+An empty **Settings â†’ Endpoint** is filled automatically when exactly one public IPv4 address is assigned to the server outside the managed VPN interface. Saved endpoints are preserved. NAT-only hosts, multiple public IPv4 addresses or detection failures require a manual public IP/domain; no external IP lookup service is contacted.
 
 New installations take client DNS defaults from the server's IPv4 resolvers. Local stubs such as `127.0.0.53` are skipped; the application checks systemd-resolved's upstream configuration when needed. It never substitutes a fixed DNS provider. If no usable IPv4 resolver can be detected, enter one manually or leave DNS empty to keep device DNS. Detection cannot guarantee that a provider's private DNS is reachable by every client. Existing saved DNS settings are preserved; **Use server DNS** fills the Settings DNS field from the current host configuration, then **Apply server settings** saves it.
 
@@ -84,7 +84,7 @@ Ubuntu 26.04.1 ARM64 KVM startup, a real WireGuard handshake, and a tunnel ping 
 
 Run the same command from step 1 whenever you want to update. No uninstall or manual file replacement is needed.
 
-From v0.4.1, an installer you previously downloaded also checks GitHub each time you run `sudo bash wgsimple-install.run`. If a newer stable release exists, it downloads that release and its checksum from the same pinned tag, verifies the package, then installs it. If the installed version is already current or newer, a default run reports that and exits without restarting services. Explicit options such as `--configure-network` still run.
+From v0.4.1, an installer you previously downloaded also checks GitHub each time you run `sudo bash wgsimple-install.run`. If a newer stable release exists, it downloads that release and its checksum from the same pinned tag, verifies the package, then installs it. If the installed version is already current or newer, a default run reports that, displays the panel and local URLs using the effective service address and port, and exits without restarting services. A loopback-only listener displays only its local URL. Explicit options such as `--configure-network` still run.
 
 A failed GitHub check, download or checksum stops before installation and leaves the running application untouched. `--check` does not perform a release lookup. For an intentional offline/pinned-package installation, use `--no-update-check` (plus `--no-deps` if package downloads are also unwanted); this uses the embedded version and does not promise the newest release. Installers downloaded before v0.4.1 gain this behavior only after downloading the new installer once.
 
@@ -113,7 +113,7 @@ Stopping the panel leaves an existing WireGuard interface running, but disables 
 
 ## Panel access and recovery
 
-In **Settings → Panel access**, choose **Public access**, **This server only**, or **Private networks only**. Optionally add up to 64 IP addresses or CIDRs, separated by commas or newlines. The allowlist intersects with the selected mode. Loopback is always admitted. Private networks mean RFC1918 IPv4 and unique-local IPv6 source addresses, including VPN networks; this is not a location check.
+In **Settings â†’ Panel access**, choose **Public access**, **This server only**, or **Private networks only**. Optionally add up to 64 IP addresses or CIDRs, separated by commas or newlines. The allowlist intersects with the selected mode. Loopback is always admitted. Private networks mean RFC1918 IPv4 and unique-local IPv6 source addresses, including VPN networks; this is not a location check.
 
 The policy takes effect on every new request, including sign-in, static files, metrics, and health checks. It is stored in `/var/lib/wgsimple/panel-access.json` with private permissions and persists through restart/upgrade. Blocking sources returns HTTP 403; it does not close the listening socket or change firewall rules. Source IP comes from the TCP connection; forwarded headers are ignored. A local reverse proxy therefore appears as loopback: enforce source restrictions in the proxy itself.
 

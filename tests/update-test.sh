@@ -2,12 +2,19 @@
 # No real network, packages, services or installation paths are modified.
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+source "$ROOT/scripts/panel-output.sh"
 source "$ROOT/scripts/update-check.sh"
 mkdir -p "$ROOT/.tools"
 TEST_DIR=$(mktemp -d "$ROOT/.tools/update-tests.XXXXXX")
 case $(cd "$TEST_DIR" && pwd -P) in "$ROOT"/.tools/update-tests.*) ;; *) exit 1 ;; esac
 trap 'case $(cd "$TEST_DIR" && pwd -P) in "$ROOT"/.tools/update-tests.*) rm -rf -- "$TEST_DIR" ;; esac' EXIT
 
+systemctl() {
+  [[ $1 == show ]] || { printf 'Unexpected service mutation: %s\n' "$*" >&2; exit 1; }
+  printf 'show\n' >> "$CASE_DIR/service-reads"
+  printf 'argv[]=/usr/local/bin/wgsimple --listen %s %s ;\n' "$LISTEN" "$TLS_FLAGS"
+}
+ip() { printf '%s\n' '2: eth0 inet 198.51.100.10/24 scope global eth0'; }
 curl() {
   printf '%s\n' "$*" >> "$CASE_DIR/requests"
   local output= arg url=${!#} previous=
@@ -36,6 +43,7 @@ prepare() {
   CASE_DIR=$TEST_DIR/$1
   mkdir "$CASE_DIR"
   export CHILD_ARGS=$CASE_DIR/child-args
+  LISTEN=0.0.0.0:8787; TLS_FLAGS=
   SCENARIO=normal; LATEST=0.4.2; INSTALLED=0.4.0
   printf 'printf "%%s\\n" "$@" > "$CHILD_ARGS"\n' > "$CASE_DIR/fixture.run"
 }
@@ -74,8 +82,27 @@ for mode in current newer; do
   [[ $mode != newer ]] || INSTALLED=10.0.0
   check_result 10
   [[ $(wc -l < "$CASE_DIR/requests") -eq 1 && ! -e $CHILD_ARGS ]]
+  grep -Fxq 'Panel:        https://198.51.100.10:8787' "$CASE_DIR/output"
+  grep -Fxq 'Local:        https://127.0.0.1:8787' "$CASE_DIR/output"
+  [[ $(cat "$CASE_DIR/service-reads") == show ]]
 done
-printf '%s\n' 'PASS current/newer installations are untouched without downgrading'
+printf '%s\n' 'PASS current/newer installations show links with read-only service access and no reinstall'
+
+prepare current-custom-port
+INSTALLED=$LATEST; LISTEN=0.0.0.0:9443
+check_result 10
+grep -Fxq 'Panel:        https://198.51.100.10:9443' "$CASE_DIR/output"
+grep -Fxq 'Local:        https://127.0.0.1:9443' "$CASE_DIR/output"
+prepare current-loopback
+INSTALLED=$LATEST; LISTEN=127.0.0.1:8788
+check_result 10
+grep -Fxq 'Local:        http://127.0.0.1:8788' "$CASE_DIR/output"
+! grep -q '^Panel:' "$CASE_DIR/output"
+prepare current-loopback-tls
+INSTALLED=$LATEST; LISTEN='[::1]:9443'; TLS_FLAGS='--tls-cert /private/cert.pem'
+check_result 10
+grep -Fxq 'Local:        https://[::1]:9443' "$CASE_DIR/output"
+printf '%s\n' 'PASS already-current links respect custom ports and loopback HTTP/TLS'
 
 for option in --no-update-check --check; do
   prepare "skip-${option#--}"
