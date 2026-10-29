@@ -1,10 +1,10 @@
-# WireGuard Simple v0.4.3
+# WireGuard Simple v0.4.4
 
-Fix Chrome ERR_SSL_VERSION_OR_CIPHER_MISMATCH when opening the self-signed HTTPS panel.
+Make the installation summary easier to read and display the first-run setup token directly.
 
-- Automatically generated certificates now use ECDSA P-256 with SHA-256, compatible with Chrome TLS signature preferences.
-- On startup, the automatic Ed25519 certificate created by v0.4.2 is atomically replaced once with an ECDSA identity. Its fingerprint changes; verify the new fingerprint over SSH before accepting the browser warning.
-- Existing browser-compatible automatic identities persist unchanged. Invalid identities still fail closed and operator-supplied custom certificates are never modified.
-- Public HTTPS requirements, Secure session cookies, loopback HTTP, VPN clients, keys and network behavior are unchanged.
+- Separate panel addresses, the setup token, certificate guidance, panel access and VPN networking with spaced headings.
+- Use green for success, cyan for panel/setup headings and yellow for Note headings in interactive terminals. Redirected output, dumb terminals and NO_COLOR remain plain text.
+- Display an existing setup token with a privacy reminder, without requiring cat or an editor. Completed setup does not display a token.
+- Keep HTTPS behavior, existing clients, accounts and network settings unchanged.
 
-Regression tests check the browser-compatible certificate algorithms, automatic legacy migration, persistence after migration, and preservation of explicit custom certificates, alongside the existing HTTPS setup/login and plaintext-rejection tests.
+Installer checks cover token display, missing and invalid token content, plain redirected output, installation and rollback.

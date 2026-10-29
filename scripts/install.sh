@@ -28,6 +28,28 @@ WGS_QUICK_WAS_ENABLED=0
 WGS_MAJOR=
 
 wgs_message() { printf '%s\n' "$*"; }
+wgs_heading() {
+  local color=$1 title=$2
+  printf '\n'
+  if [[ -t 1 && ${TERM:-dumb} != dumb && ! -v NO_COLOR ]]; then
+    printf '\033[1;%sm%s\033[0m\n' "$color" "$title"
+  else
+    printf '%s\n' "$title"
+  fi
+}
+wgs_setup_token() {
+  local token_file=$WGS_STATE_DIR/setup-token token
+  # Print only the expected token format, never terminal control sequences.
+  if [[ -f $token_file && ! -L $token_file && -r $token_file ]]; then
+    token=$(< "$token_file")
+    if [[ $token =~ ^[a-zA-Z0-9_-]+$ ]]; then
+      wgs_heading 36 'Setup token:'
+      wgs_message "  $token"
+      wgs_message '  Paste this into the panel to create your administrator account.'
+      wgs_message '  Keep this token private. It is no longer valid after setup.'
+    fi
+  fi
+}
 wgs_fail() { printf 'Error: %s\n' "$*" >&2; return 1; }
 wgs_usage() {
   cat <<'HELP'
@@ -318,36 +340,50 @@ wgs_install() {
   fi
   if ((WGS_START)); then WGS_START_ATTEMPTED=1; systemctl enable --now wgsimple.service; wgs_ready; fi
   WGS_ROLLBACK=0
-  wgs_message ''
-  wgs_message 'WireGuard Simple installed.'
+  wgs_heading 32 'WireGuard Simple installed.'
+  wgs_heading 36 'Panel:'
   if ((WGS_START)); then
     if ((WGS_UNIT_EXISTED == 0)); then
-      wgs_message 'Panel ready: https://127.0.0.1:8787'
+      wgs_message '  Local:  https://127.0.0.1:8787'
       local panel_ip
       panel_ip=$(ip -o -4 addr show scope global 2>/dev/null | awk '{split($4,a,"/"); print a[1]; exit}') || panel_ip=
       if [[ $panel_ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        wgs_message "Panel ready: https://$panel_ip:8787"
+        wgs_message "  Server: https://$panel_ip:8787"
       else
         wgs_message 'Server IP could not be detected. Use https://SERVER_IP:8787 or the SSH tunnel.'
       fi
-      wgs_message 'HTTPS uses a private, persistent self-signed certificate. A browser warning is expected; verify its SHA-256 fingerprint over SSH before accepting.'
-      wgs_message "Certificate fingerprint: sudo openssl x509 -in $WGS_STATE_DIR/panel-tls.pem -noout -fingerprint -sha256"
-      wgs_message 'Restrict access in Settings > Panel access. A trusted custom certificate avoids the browser warning.'
-      wgs_message 'External access requires TCP 8787 in your server/provider firewall. Behind NAT, use the mapped public IP; local address detection cannot discover it.'
     else
       wgs_message 'Existing listener and panel access policy preserved; check the service configuration for external access.'
       wgs_message 'Non-loopback listeners now require HTTPS, including existing units with --allow-http. Loopback-only HTTP remains supported.'
     fi
   else wgs_message 'To start the panel: sudo systemctl enable --now wgsimple.service'; fi
-  wgs_message 'From your own computer: ssh -L 8787:127.0.0.1:8787 USER@SERVER_IP'
-  wgs_message "If a setup token exists, read it privately on the server: sudo cat $WGS_STATE_DIR/setup-token"
-  wgs_message 'Client data is preserved; traffic history and log preferences are unchanged.'
+  wgs_setup_token
+  wgs_heading 33 'Note: HTTPS certificate'
+  wgs_message '  A browser warning is expected with the automatic self-signed certificate.'
+  wgs_message '  Before accepting, verify its SHA-256 fingerprint over SSH:'
+  wgs_message "  sudo openssl x509 -in $WGS_STATE_DIR/panel-tls.pem -noout -fingerprint -sha256"
+  wgs_message '  If using a custom certificate, verify that certificate instead.'
+  wgs_message '  A trusted custom certificate avoids the browser warning.'
+  wgs_heading 33 'Note: Panel access'
+  wgs_message '  Allow TCP 8787 in your server/provider firewall for external access.'
+  wgs_message '  Behind NAT, use your mapped public IP; the address above may be local.'
+  wgs_message '  Restrict access in Settings > Panel access.'
+  wgs_message '  Optional SSH tunnel (run on your own computer):'
+  wgs_message '  ssh -L 8787:127.0.0.1:8787 USER@SERVER_IP'
+  wgs_heading 33 'Note: VPN networking'
   if [[ $WGS_NETWORK != off && -f $WGS_UNIT_DIR/wgsimple-network.service ]]; then
-    wgs_message 'IPv4 VPN startup, forwarding and subnet-scoped NAT are managed automatically.'
-    wgs_message 'Allow the saved WireGuard UDP port in your provider firewall (default: UDP 51820). Set the public endpoint in Settings.'
+    wgs_message '  IPv4 VPN startup, forwarding and NAT are managed automatically.'
+    wgs_message '  Allow your WireGuard UDP port in the provider firewall (default: 51820).'
+    wgs_message '  Set the public endpoint in Settings.'
   else
-    wgs_message 'VPN networking is administrator-managed. Configure forwarding, NAT, UDP firewall access and boot startup before connecting clients.'
+    wgs_message '  Networking is administrator-managed. Configure forwarding, NAT,'
+    wgs_message '  UDP firewall access and boot startup before connecting clients.'
   fi
+  if ((WGS_BINARY_EXISTED || WGS_UNIT_EXISTED)); then
+    wgs_heading 36 'Preserved data:'
+    wgs_message '  Clients, traffic history and log preferences are unchanged.'
+  fi
+  wgs_message ''
 }
 wgs_main() {
   local result=0 arch script_dir

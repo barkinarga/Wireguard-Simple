@@ -123,8 +123,8 @@ mkdir "$TEST_DIR/first"
   prepare_case "$TEST_DIR/first"
   ip() { printf '%s\n' '2: eth0 inet 198.51.100.10/24 brd 198.51.100.255 scope global eth0'; }
   wgs_install > "$CASE_DIR/output"
-  grep -q 'Panel ready: https://127.0.0.1:8787' "$CASE_DIR/output"
-  grep -q 'Panel ready: https://198.51.100.10:8787' "$CASE_DIR/output"
+  grep -q 'Local:  https://127.0.0.1:8787' "$CASE_DIR/output"
+  grep -q 'Server: https://198.51.100.10:8787' "$CASE_DIR/output"
   assert_equal "$(cat "$WGS_BIN_DIR/wgsimple")" new-binary
   [[ -f $CASE_DIR/active && -f $CASE_DIR/enabled ]]
   grep -q -- '--listen 0.0.0.0:8787 --data-dir' "$WGS_UNIT_DIR/wgsimple.service"
@@ -133,6 +133,22 @@ mkdir "$TEST_DIR/first"
   [[ ! -e $WGS_STATE_DIR/telemetry.db ]]
 )
 printf '%s\n' 'PASS first installation and private service defaults'
+
+(
+  WGS_STATE_DIR=$TEST_DIR/first/state
+  printf '%s\n' 'example_SETUP-token_123' > "$WGS_STATE_DIR/setup-token"
+  wgs_setup_token > "$TEST_DIR/token-output"
+  grep -q '^  example_SETUP-token_123$' "$TEST_DIR/token-output"
+  ! grep -q $'\033' "$TEST_DIR/token-output"
+  printf 'unsafe\033[31m' > "$WGS_STATE_DIR/setup-token"
+  assert_equal "$(wgs_setup_token)" ''
+  rm -- "$WGS_STATE_DIR/setup-token"
+  assert_equal "$(wgs_setup_token)" ''
+  NO_COLOR=1 wgs_heading 33 'Note: HTTPS certificate' > "$TEST_DIR/heading-output"
+  grep -q '^Note: HTTPS certificate$' "$TEST_DIR/heading-output"
+  ! grep -q $'\033' "$TEST_DIR/heading-output"
+)
+printf '%s\n' 'PASS setup token display, absent token and plain log output'
 
 mkdir "$TEST_DIR/update"
 (
