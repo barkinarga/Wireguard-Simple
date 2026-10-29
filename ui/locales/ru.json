@@ -355,5 +355,13 @@
   "Generate automatically": "Создать автоматически",
   "0 disables keepalive. Listen port 0 is automatic. Routing settings do not enforce access restrictions.": "0 отключает keepalive. Порт 0 выбирается автоматически. Маршрутизация не ограничивает доступ.",
   "Use server DNS": "Использовать DNS сервера",
-  "Server DNS could not be detected. Enter DNS addresses manually.": "Не удалось определить DNS сервера. Введите адреса вручную."
+  "Server DNS could not be detected. Enter DNS addresses manually.": "Не удалось определить DNS сервера. Введите адреса вручную.",
+  "VPN subnet: {subnet}": "Подсеть VPN: {subnet}",
+  "Enter an IPv4 address in the VPN subnet, with /32.": "Введите IPv4-адрес из подсети VPN с /32.",
+  "This address belongs to the VPN server.": "Этот адрес принадлежит VPN-серверу.",
+  "Client address is already in use": "Адрес клиента уже используется",
+  "This address stays assigned to this client.": "Этот адрес остаётся закреплённым за клиентом.",
+  "Leave empty to assign an available address automatically.": "Оставьте пустым для автоматического назначения свободного адреса.",
+  "Linux policy routing. Leave empty unless required.": "Маршрутизация по правилам Linux. Заполняйте только при необходимости.",
+  "A unique key is generated automatically when left empty.": "Если поле пустое, уникальный ключ создаётся автоматически."
 }

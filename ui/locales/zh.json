@@ -355,5 +355,13 @@
   "Generate automatically": "自动生成",
   "0 disables keepalive. Listen port 0 is automatic. Routing settings do not enforce access restrictions.": "0 禁用保活。监听端口 0 表示自动选择。路由设置不强制实施访问限制。",
   "Use server DNS": "使用服务器 DNS",
-  "Server DNS could not be detected. Enter DNS addresses manually.": "无法检测服务器 DNS。请手动输入 DNS 地址。"
+  "Server DNS could not be detected. Enter DNS addresses manually.": "无法检测服务器 DNS。请手动输入 DNS 地址。",
+  "VPN subnet: {subnet}": "VPN 子网：{subnet}",
+  "Enter an IPv4 address in the VPN subnet, with /32.": "请输入 VPN 子网内的 IPv4 地址，使用 /32。",
+  "This address belongs to the VPN server.": "此地址属于 VPN 服务器。",
+  "Client address is already in use": "客户端地址已被使用",
+  "This address stays assigned to this client.": "此地址将保持分配给此客户端。",
+  "Leave empty to assign an available address automatically.": "留空以自动分配可用地址。",
+  "Linux policy routing. Leave empty unless required.": "用于 Linux 策略路由。无需要求时请留空。",
+  "A unique key is generated automatically when left empty.": "留空时将自动生成唯一密钥。"
 }

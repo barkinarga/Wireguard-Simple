@@ -50,7 +50,7 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           version="${tag#v}"
-          if [[ -z $version ]]; then version=0.4.10-dev; fi
+          if [[ -z $version ]]; then version=0.4.11-dev; fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Build embedded interface
         run: |
@@ -58,6 +58,7 @@ jobs:
           npm run check
           npm run build
           npm run test:i18n
+          npm run test:client-address
       - name: Backend and concurrency tests
         run: |
           go test -race ./... -count=1

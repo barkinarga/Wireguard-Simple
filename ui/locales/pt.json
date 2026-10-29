@@ -355,5 +355,13 @@
   "Generate automatically": "Gerar automaticamente",
   "0 disables keepalive. Listen port 0 is automatic. Routing settings do not enforce access restrictions.": "0 desativa keepalive. A porta 0 é automática. O roteamento não impõe restrições de acesso.",
   "Use server DNS": "Usar DNS do servidor",
-  "Server DNS could not be detected. Enter DNS addresses manually.": "Não foi possível detectar o DNS do servidor. Digite os endereços manualmente."
+  "Server DNS could not be detected. Enter DNS addresses manually.": "Não foi possível detectar o DNS do servidor. Digite os endereços manualmente.",
+  "VPN subnet: {subnet}": "Sub-rede VPN: {subnet}",
+  "Enter an IPv4 address in the VPN subnet, with /32.": "Digite um endereço IPv4 da sub-rede VPN com /32.",
+  "This address belongs to the VPN server.": "Este endereço pertence ao servidor VPN.",
+  "Client address is already in use": "O endereço do cliente já está em uso",
+  "This address stays assigned to this client.": "Este endereço permanece atribuído a este cliente.",
+  "Leave empty to assign an available address automatically.": "Deixe vazio para atribuir um endereço disponível automaticamente.",
+  "Linux policy routing. Leave empty unless required.": "Roteamento por políticas do Linux. Deixe vazio se não for necessário.",
+  "A unique key is generated automatically when left empty.": "Se vazio, uma chave exclusiva é gerada automaticamente."
 }

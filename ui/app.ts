@@ -1,5 +1,6 @@
 import { t, language, locale, languages, setLanguage, initLanguage, serverMessage, duration } from './i18n';
 import './design';
+import { clientAddressPreview, clientAddressIssue, normalizeClientAddress } from './client-address';
 export {};
 type Settings = { historyEnabled: boolean; auditEnabled: boolean; metricsEnabled: boolean; retentionDays: number; budgetMB: number; sampleSeconds: number };
 type Server = { name: string; interface: string; address: string; endpoint: string; port: number; dns: string; allowedIPs: string; mtu: number; publicKey: string };
@@ -269,11 +270,11 @@ modal.addEventListener('cancel', event => { event.preventDefault(); closeDialog(
 modal.addEventListener('click', event => { if (event.target === modal) { const box = modal.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) closeDialog(); } });
 function createDialog(): void {
   const s = state.server;
+  const addressPreview = clientAddressPreview(s.address, state.peers);
   const optional = (label: string, name: string, placeholder = '', extra = '') => field(label, name, '', '', `placeholder="${esc(placeholder)}" ${extra}`);
-  openDialog(t("New client"), `<p class="modal-subtitle">${t("Name your device. We will generate its keys and allocate an available IP address.")}</p><form id="create-form">
-    <div class="form-grid single"><label>${t("Client name")}<input name="name" placeholder="${t("e.g. Work MacBook")}" required maxlength="64" autocomplete="off" autofocus/></label><label>${t("Access expiry date")} <span class="optional">${t("Optional")}</span><input name="expires" type="datetime-local" min="${new Date(Date.now() + 60000).toLocaleString('sv-SE').slice(0, 16).replace(' ', 'T')}"/><small>${t("Leave empty for no time limit.")}</small></label></div>
+  openDialog(t("New client"), `<form id="create-form"><div class="client-form-body"><p class="modal-subtitle">${t("Name your device. We will generate its keys and allocate an available IP address.")}</p>
+    <div class="form-grid single"><label>${t("Client name")}<input name="name" placeholder="${t("e.g. Work MacBook")}" required maxlength="64" autocomplete="off" autofocus/></label><label>${t("Client VPN address")}<input name="address" value="${esc(addressPreview.next)}" placeholder="${t("Generate automatically")}" autocomplete="off" spellcheck="false" aria-describedby="client-subnet client-address-feedback"/><small id="client-subnet">${esc(t("VPN subnet: {subnet}", { subnet: addressPreview.subnet || s.address }))}</small><small id="client-address-feedback" aria-live="polite"></small></label><label>${t("Access expiry date")} <span class="optional">${t("Optional")}</span><input name="expires" type="datetime-local" min="${new Date(Date.now() + 60000).toLocaleString('sv-SE').slice(0, 16).replace(' ', 'T')}"/><small>${t("Leave empty for no time limit.")}</small></label></div>
     <details id="client-advanced" class="client-advanced-settings"><summary>${t("Advanced settings")}</summary><p>${t("Leave fields empty to use the defaults. Changes apply only to this client.")}</p><div class="form-grid">
-      ${optional(t("Client VPN address"), 'address', t('Generate automatically'))}
       <label>${t("DNS servers")}<select name="dnsMode"><option value="inherit">${t("Use server defaults")}</option><option value="custom">${t("Custom DNS")}</option><option value="device">${t("Keep device DNS")}</option></select><input name="dns" disabled placeholder="${esc(s.dns || t('Comma-separated IP addresses.'))}" autocomplete="off"/></label>
       ${optional(t("Client Allowed IPs"), 'allowedIPs', s.allowedIPs)}
       ${optional('Endpoint', 'endpoint', s.endpoint || 'SERVER_IP')}
@@ -281,12 +282,29 @@ function createDialog(): void {
       ${optional('MTU', 'mtu', String(s.mtu), 'type="number" min="1280" max="1500"')}
       ${optional(t("Persistent keepalive (seconds)"), 'persistentKeepalive', '25', 'type="number" min="0" max="65535"')}
       ${optional(t("Client listen port"), 'listenPort', '0', 'type="number" min="0" max="65535"')}
-      ${optional('FwMark', 'fwMark', '0', 'type="number" min="0" max="4294967295"')}
+      ${field('FwMark', 'fwMark', '', t("Linux policy routing. Leave empty unless required."), 'placeholder="0" type="number" min="0" max="4294967295"')}
       ${optional(t("Client private key"), 'privateKey', t("Generate automatically"), 'type="password" autocomplete="new-password" spellcheck="false"')}
-      ${optional(t("Preshared key"), 'presharedKey', t("Generate automatically"), 'type="password" autocomplete="new-password" spellcheck="false"')}
+      ${field(t("Preshared key"), 'presharedKey', '', t("A unique key is generated automatically when left empty."), `placeholder="${esc(t("Generate automatically"))}" type="password" autocomplete="new-password" spellcheck="false"`)}
     </div><small>${t("0 disables keepalive. Listen port 0 is automatic. Routing settings do not enforce access restrictions.")}</small></details>
-    <div class="modal-note">${icon('shield')}${t("Each client gets an independent key pair.")}</div><div class="modal-actions"><button class="btn secondary" type="button" id="cancel-create">${t("Cancel")}</button><button class="btn primary" type="submit">${icon('plus')}${t("Create client")}</button></div></form>`);
+    <div class="modal-note">${icon('shield')}${t("Each client gets an independent key pair.")}</div></div><div class="modal-actions"><button class="btn secondary" type="button" id="cancel-create">${t("Cancel")}</button><button class="btn primary" type="submit">${icon('plus')}${t("Create client")}</button></div></form>`, 'create-client');
   modal.querySelector('#cancel-create')!.addEventListener('click', closeDialog);
+  const address = modal.querySelector<HTMLInputElement>('[name="address"]')!;
+  const feedback = modal.querySelector<HTMLElement>('#client-address-feedback')!;
+  const validateAddress = () => {
+    const currentPreview = clientAddressPreview(state.server.address, state.peers);
+    modal.querySelector('#client-subnet')!.textContent = t('VPN subnet: {subnet}', { subnet: currentPreview.subnet || state.server.address });
+    const issue = clientAddressIssue(state.server.address, state.peers, address.value);
+    address.setCustomValidity(issue ? t(issue) : '');
+    address.setAttribute('aria-invalid', String(Boolean(issue)));
+    feedback.classList.toggle('field-error', Boolean(issue));
+    feedback.textContent = issue ? t(issue) : address.value.trim()
+      ? t("This address stays assigned to this client.")
+      : t("Leave empty to assign an available address automatically.");
+    return !issue;
+  };
+  address.addEventListener('input', validateAddress);
+  address.addEventListener('blur', () => { address.value = normalizeClientAddress(address.value); validateAddress(); });
+  validateAddress();
   const advanced = modal.querySelector<HTMLDetailsElement>('#client-advanced')!;
   advanced.addEventListener('toggle', () => modal.classList.toggle('client-advanced', advanced.open));
   modal.querySelector<HTMLSelectElement>('[name="dnsMode"]')!.addEventListener('change', event => {
@@ -297,13 +315,30 @@ function createDialog(): void {
   modal.querySelector<HTMLFormElement>('#create-form')!.addEventListener('submit', event => {
     event.preventDefault(); const form = event.currentTarget as HTMLFormElement;
     void submitForm(form, async () => {
+      // Refresh occupied addresses before submission; the server still performs
+      // the final atomic check if another administrator claims one concurrently.
+      await refresh(true);
+      if (!form.isConnected || !modal.open) return;
+      if (!validateAddress()) { address.reportValidity(); return; }
+      address.value = normalizeClientAddress(address.value);
       const f = new FormData(form); const expires = String(f.get('expires'));
       const options: Record<string, string | number> = {};
       for (const key of ['address', 'allowedIPs', 'endpoint', 'privateKey', 'presharedKey']) { const value = String(f.get(key) ?? '').trim(); if (value) options[key] = value; }
       for (const key of ['port', 'mtu', 'persistentKeepalive', 'listenPort', 'fwMark']) { const value = String(f.get(key) ?? '').trim(); if (value) options[key] = Number(value); }
       if (f.get('dnsMode') === 'custom') options.dns = String(f.get('dns') ?? '').trim();
       if (f.get('dnsMode') === 'device') options.dns = '';
-      const peer = await api<Peer>('/api/peers', 'POST', { name: f.get('name'), expiresAt: expires ? new Date(expires).toISOString() : null, options });
+      let peer: Peer;
+      try {
+        peer = await api<Peer>('/api/peers', 'POST', { name: f.get('name'), expiresAt: expires ? new Date(expires).toISOString() : null, options });
+      } catch (error) {
+        // Keep the form and typed address intact on a concurrent conflict.
+        if (error instanceof Error && error.message === t('Client address is already in use')) {
+          address.setCustomValidity(error.message); address.setAttribute('aria-invalid', 'true');
+          feedback.textContent = error.message; feedback.classList.add('field-error'); address.focus();
+          return;
+        }
+        throw error;
+      }
       closeDialog(); await refresh(true); toast(t("Client created")); detailDialog(peer.id);
     });
   });

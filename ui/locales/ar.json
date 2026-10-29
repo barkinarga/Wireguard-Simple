@@ -355,5 +355,13 @@
   "Generate automatically": "إنشاء تلقائي",
   "0 disables keepalive. Listen port 0 is automatic. Routing settings do not enforce access restrictions.": "0 يعطل إبقاء الاتصال. المنفذ 0 تلقائي. إعدادات التوجيه لا تفرض قيود الوصول.",
   "Use server DNS": "استخدام DNS الخادم",
-  "Server DNS could not be detected. Enter DNS addresses manually.": "تعذر اكتشاف DNS الخادم. أدخل العناوين يدويًا."
+  "Server DNS could not be detected. Enter DNS addresses manually.": "تعذر اكتشاف DNS الخادم. أدخل العناوين يدويًا.",
+  "VPN subnet: {subnet}": "شبكة VPN الفرعية: {subnet}",
+  "Enter an IPv4 address in the VPN subnet, with /32.": "أدخل عنوان IPv4 ضمن شبكة VPN الفرعية مع /32.",
+  "This address belongs to the VPN server.": "هذا العنوان خاص بخادم VPN.",
+  "Client address is already in use": "عنوان العميل مستخدم بالفعل",
+  "This address stays assigned to this client.": "يبقى هذا العنوان مخصصًا لهذا العميل.",
+  "Leave empty to assign an available address automatically.": "اتركه فارغًا لتعيين عنوان متاح تلقائيًا.",
+  "Linux policy routing. Leave empty unless required.": "لتوجيه السياسات في Linux. اتركه فارغًا ما لم يلزم.",
+  "A unique key is generated automatically when left empty.": "يُنشأ مفتاح فريد تلقائيًا عند تركه فارغًا."
 }

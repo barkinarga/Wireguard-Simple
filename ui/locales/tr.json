@@ -355,5 +355,13 @@
   "Generate automatically": "Otomatik oluştur",
   "0 disables keepalive. Listen port 0 is automatic. Routing settings do not enforce access restrictions.": "0 canlı tutmayı kapatır. Dinleme portu 0 ise otomatik seçilir. Yönlendirme ayarları erişim kısıtlaması uygulamaz.",
   "Use server DNS": "Sunucunun DNS adreslerini kullan",
-  "Server DNS could not be detected. Enter DNS addresses manually.": "Sunucunun DNS adresleri tespit edilemedi. DNS adreslerini elle girin."
+  "Server DNS could not be detected. Enter DNS addresses manually.": "Sunucunun DNS adresleri tespit edilemedi. DNS adreslerini elle girin.",
+  "VPN subnet: {subnet}": "VPN ağı: {subnet}",
+  "Enter an IPv4 address in the VPN subnet, with /32.": "VPN ağı içinde /32 ile bir IPv4 adresi girin.",
+  "This address belongs to the VPN server.": "Bu adres VPN sunucusuna ait.",
+  "Client address is already in use": "İstemci adresi zaten kullanılıyor",
+  "This address stays assigned to this client.": "Bu adres bu istemciye atanmış olarak kalır.",
+  "Leave empty to assign an available address automatically.": "Boş bırakırsanız kullanılabilir bir adres otomatik atanır.",
+  "Linux policy routing. Leave empty unless required.": "Linux yönlendirme kuralları içindir. Gerekmiyorsa boş bırakın.",
+  "A unique key is generated automatically when left empty.": "Boş bırakıldığında benzersiz bir anahtar otomatik üretilir."
 }
