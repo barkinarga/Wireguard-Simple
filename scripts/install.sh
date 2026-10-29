@@ -172,7 +172,7 @@ $(if ((WGS_NETWORK_NEW)); then printf 'Requires=wgsimple-network.service\nAfter=
 Type=simple
 User=root
 UMask=0077
-ExecStart=$WGS_BIN_DIR/wgsimple --mode live --listen 0.0.0.0:8787 --allow-http --data-dir $WGS_STATE_DIR --interface $WGS_INTERFACE
+ExecStart=$WGS_BIN_DIR/wgsimple --mode live --listen 0.0.0.0:8787 --data-dir $WGS_STATE_DIR --interface $WGS_INTERFACE
 Restart=on-failure
 RestartSec=5
 WorkingDirectory=$WGS_STATE_DIR
@@ -224,7 +224,11 @@ UNIT
 wgs_ready() {
   local attempt
   for attempt in {1..20}; do
-    if systemctl is-active --quiet wgsimple.service && curl --noproxy '*' --fail --silent --max-time 2 http://127.0.0.1:8787/healthz >/dev/null 2>&1; then return 0; fi
+    if systemctl is-active --quiet wgsimple.service; then
+      # Only a loopback health probe skips verification, never a download/login.
+      if curl --noproxy '*' --insecure --fail --silent --max-time 2 https://127.0.0.1:8787/healthz >/dev/null 2>&1 || \
+         curl --noproxy '*' --fail --silent --max-time 2 http://127.0.0.1:8787/healthz >/dev/null 2>&1; then return 0; fi
+    fi
     sleep 1
   done
   wgs_fail 'Panel health check failed; restoring the previous installation. Use --no-start for custom service settings'
@@ -317,19 +321,22 @@ wgs_install() {
   wgs_message ''
   wgs_message 'WireGuard Simple installed.'
   if ((WGS_START)); then
-    wgs_message 'Panel ready: http://127.0.0.1:8787'
     if ((WGS_UNIT_EXISTED == 0)); then
+      wgs_message 'Panel ready: https://127.0.0.1:8787'
       local panel_ip
       panel_ip=$(ip -o -4 addr show scope global 2>/dev/null | awk '{split($4,a,"/"); print a[1]; exit}') || panel_ip=
       if [[ $panel_ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        wgs_message "Panel ready: http://$panel_ip:8787"
+        wgs_message "Panel ready: https://$panel_ip:8787"
       else
-        wgs_message 'Server IP could not be detected. Use http://SERVER_IP:8787 or the SSH tunnel.'
+        wgs_message 'Server IP could not be detected. Use https://SERVER_IP:8787 or the SSH tunnel.'
       fi
-      wgs_message 'Public HTTP is unencrypted. Use HTTPS on untrusted networks. Restrict access in Settings > Panel access.'
+      wgs_message 'HTTPS uses a private, persistent self-signed certificate. A browser warning is expected; verify its SHA-256 fingerprint over SSH before accepting.'
+      wgs_message "Certificate fingerprint: sudo openssl x509 -in $WGS_STATE_DIR/panel-tls.pem -noout -fingerprint -sha256"
+      wgs_message 'Restrict access in Settings > Panel access. A trusted custom certificate avoids the browser warning.'
       wgs_message 'External access requires TCP 8787 in your server/provider firewall. Behind NAT, use the mapped public IP; local address detection cannot discover it.'
     else
       wgs_message 'Existing listener and panel access policy preserved; check the service configuration for external access.'
+      wgs_message 'Non-loopback listeners now require HTTPS, including existing units with --allow-http. Loopback-only HTTP remains supported.'
     fi
   else wgs_message 'To start the panel: sudo systemctl enable --now wgsimple.service'; fi
   wgs_message 'From your own computer: ssh -L 8787:127.0.0.1:8787 USER@SERVER_IP'

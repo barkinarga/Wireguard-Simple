@@ -1,12 +1,14 @@
-# WireGuard Simple v0.4.1
+# WireGuard Simple v0.4.2
 
-Use the same one-line command to install or update. From this version, an already downloaded installer also checks GitHub for the latest stable release before installing.
+Public panel access now uses HTTPS automatically, without requiring Cloudflare, a domain name, or an external certificate service.
 
-- A newer release is downloaded with its checksum from one pinned release tag and verified before execution.
-- An already-current or newer installed version is left running on a default invocation; no service restart or downgrade. Explicit configuration options still run.
-- Failed release checks, downloads and checksum validation stop before installation. The running application remains unchanged.
-- Existing accounts, client keys, expiry dates, settings and service configuration retain the established upgrade behavior.
-- `--check` makes no release request. `--no-update-check` explicitly uses the embedded package for offline or pinned installs. Delegated updates cannot recurse.
-- V2 remains the default interface from v0.4.0, with the existing ten languages and original design available at `/?design=v1`.
+- Non-loopback listeners create a server-specific, persistent self-signed TLS certificate when no custom certificate is supplied. Open `https://SERVER_IP:8787` and verify the certificate fingerprint over SSH before accepting the expected browser warning.
+- The private combined certificate/key stays in `<data-dir>/panel-tls.pem` with private permissions and is reused across restarts and upgrades. Invalid automatic identities stop startup instead of falling back to HTTP.
+- Existing public service files containing `--allow-http` now use HTTPS too; the flag remains accepted only for compatibility. An explicit public HTTP origin must be changed to HTTPS. Loopback-only HTTP and custom TLS certificates remain supported.
+- HTTPS setup/login sessions use Secure cookies. Plaintext requests cannot reach management handlers on the HTTPS listener.
+- The installer generates a HTTPS-enabled service, prints HTTPS addresses, and checks local readiness with support for self-signed HTTPS and preserved loopback HTTP services.
+- Existing VPN clients, keys, expiry behavior and network-access behavior are unchanged. This release does not add VPN access profiles or a separate control service.
 
-Installer regression tests cover numeric version ordering, corrupt/duplicate checksums, failed downloads, unavailable or invalid releases, argument preservation, recursion prevention, no-op updates and install-error propagation. No backup feature or background update scheduler is added.
+Self-signed TLS encrypts the connection, but blindly accepting a warning does not authenticate the server against an active intermediary. Verify the fingerprint over a trusted SSH connection, explicitly trust the verified certificate, or configure a trusted custom certificate.
+
+Regression coverage includes real HTTPS setup/login through the production server, plaintext rejection, Secure cookies, certificate persistence, invalid/expired identities, private permissions and symlinks where supported, custom TLS, IPv4/IPv6 listener classification, and installer readiness/upgrade preservation.

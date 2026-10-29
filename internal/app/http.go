@@ -522,6 +522,13 @@ func (s *HTTPServer) metricsToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func Serve(ctx context.Context, handler http.Handler, listen, cert, key string) error {
+	loopback, err := LoopbackListener(listen)
+	if err != nil {
+		return err
+	}
+	if (cert == "") != (key == "") || (!loopback && cert == "") {
+		return errors.New("Non-loopback listeners require HTTPS; TLS certificate and key must be supplied together")
+	}
 	srv := &http.Server{Addr: listen, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
 	go func() {
 		<-ctx.Done()
@@ -529,7 +536,6 @@ func Serve(ctx context.Context, handler http.Handler, listen, cert, key string) 
 		defer cancel()
 		_ = srv.Shutdown(shutdown)
 	}()
-	var err error
 	if cert != "" {
 		err = srv.ListenAndServeTLS(cert, key)
 	} else {

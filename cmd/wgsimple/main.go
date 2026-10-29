@@ -4,8 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"net"
-	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -16,7 +14,7 @@ import (
 	"wireguard-simple/internal/web"
 )
 
-var version = "0.4.1-dev"
+var version = "0.4.2-dev"
 
 func run() error {
 	mode := flag.String("mode", "live", "demo (no network changes) or live (Linux only)")
@@ -27,7 +25,7 @@ func run() error {
 	origin := flag.String("origin", "", "canonical panel origin, e.g. https://vpn.example.com")
 	cert := flag.String("tls-cert", "", "TLS certificate file")
 	key := flag.String("tls-key", "", "TLS private key file")
-	allowHTTP := flag.Bool("allow-http", false, "allow live public HTTP (unencrypted); prefer TLS on untrusted networks")
+	allowHTTP := flag.Bool("allow-http", false, "deprecated compatibility flag; non-loopback listeners always use HTTPS")
 	resetAccess := flag.String("reset-panel-access", "", "reset panel policy to public, local, or lan, then exit (stop service first)")
 	prepareNetwork := flag.Bool("prepare-network", false, "prepare managed IPv4 interface, forwarding and NAT, then exit (root, live mode, stop panel first)")
 	showVersion := flag.Bool("version", false, "print version")
@@ -45,26 +43,21 @@ func run() error {
 	if !app.ValidInterface(*iface) {
 		return fmt.Errorf("invalid interface name")
 	}
-	host, _, err := net.SplitHostPort(*listen)
+	loopback, err := app.LoopbackListener(*listen)
 	if err != nil {
 		return err
 	}
-	ip := net.ParseIP(host)
-	loopback := host == "localhost" || (ip != nil && ip.IsLoopback())
-	if !loopback && (*mode == "demo" || (!*allowHTTP && (*cert == "" || *key == "" || *origin == ""))) {
-		return fmt.Errorf("public listeners require live mode, TLS certificate/key, and an explicit HTTPS origin")
+	if !loopback && *mode == "demo" {
+		return fmt.Errorf("demo mode requires a loopback listener")
 	}
 	if (*cert == "") != (*key == "") {
 		return fmt.Errorf("TLS certificate and key must be specified together")
 	}
-	if *origin != "" {
-		u, e := url.Parse(*origin)
-		if e != nil || u.Host == "" || u.Path != "" || u.RawQuery != "" || u.User != nil || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https") {
-			return fmt.Errorf("invalid canonical origin")
-		}
-		if !loopback && !*allowHTTP && u.Scheme != "https" {
-			return fmt.Errorf("public origin must use HTTPS")
-		}
+	if err := app.ValidatePanelOrigin(*origin, loopback); err != nil {
+		return err
+	}
+	if *allowHTTP && !loopback {
+		fmt.Fprintln(os.Stderr, "--allow-http is deprecated: public panel access now uses HTTPS.")
 	}
 	if *dir == "" {
 		if *mode == "demo" {
@@ -112,6 +105,10 @@ func run() error {
 		fmt.Println("Managed IPv4 VPN interface, forwarding and NAT are ready.")
 		return nil
 	}
+	*cert, *key, err = app.PanelTLS(*listen, *origin, absolute, *cert, *key)
+	if err != nil {
+		return err
+	}
 	var engine app.Engine = app.NewDemoEngine()
 	if *mode == "live" {
 		engine = &app.LiveEngine{ConfigDir: *configDir}
@@ -130,6 +127,9 @@ func run() error {
 	scheme := "http"
 	if *cert != "" {
 		scheme = "https"
+	}
+	if *cert == filepath.Join(absolute, "panel-tls.pem") {
+		fmt.Printf("Self-signed HTTPS identity: %s. Verify its SHA-256 fingerprint over SSH before accepting the browser warning.\n", *cert)
 	}
 	fmt.Printf("WireGuard Simple %s · %s\nLocal: %s://%s\n", version, *mode, scheme, *listen)
 	if *mode == "demo" {

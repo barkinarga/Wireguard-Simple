@@ -75,19 +75,19 @@ curl -fL --retry 3 -o wgsimple-install.run https://github.com/barkinarga/Wiregua
 
 **Use the same command to install or update.** From v0.4.1, even a previously downloaded installer checks the latest stable GitHub release. It verifies a newer package before running it, preserves existing accounts/clients/settings, and leaves an already-current installation running. Failed update checks or downloads stop before installation.
 
-The installer selects **amd64 or arm64**, checks the embedded payload's SHA-256, installs missing system tools, and starts the management service. A fresh installation listens on all IPv4 interfaces on TCP 8787 and prints both loopback and a detected server address. Open `http://SERVER_IP:8787` directly, or use an SSH tunnel:
+The installer selects **amd64 or arm64**, checks the embedded payload's SHA-256, installs missing system tools, and starts the management service. A fresh installation listens on all IPv4 interfaces on TCP 8787 and prints both loopback and a detected server address. Non-loopback listeners now use HTTPS automatically, with a persistent self-signed certificate generated privately on that server. Open `https://SERVER_IP:8787` directly, or use an SSH tunnel:
 
 ```bash
 ssh -L 8787:127.0.0.1:8787 user@server
 ```
 
-Open **http://127.0.0.1:8787** on your computer. On the server, read the first-run token and use it to create your administrator account:
+For a fresh installation, open **https://127.0.0.1:8787** on your computer, including through the SSH tunnel. A self-signed certificate warning is expected: compare its SHA-256 fingerprint with `sudo openssl x509 -in /var/lib/wgsimple/panel-tls.pem -noout -fingerprint -sha256` over SSH before accepting. Cloudflare, a domain, and an external certificate service are not required. A trusted custom certificate avoids the warning. On the server, read the first-run token and use it to create your administrator account:
 
 ```bash
 sudo cat /var/lib/wgsimple/setup-token
 ```
 
-**Fresh installations also prepare IPv4 forwarding, subnet-scoped NAT and automatic WireGuard startup.** The uplink is detected from the default IPv4 route. Active UFW/firewalld or custom input/forward rules require administrator-managed setup with `--no-network`; the installer stops with an explanation instead of silently reporting success. Existing installations retain their networking unless you request `--configure-network`. Set the public endpoint in Settings and allow the VPN UDP port in your provider firewall (default 51820). Direct panel access also requires TCP 8787 to be allowed by your host/provider firewall. HTTP is unencrypted; use the SSH tunnel or configure HTTPS on untrusted networks.
+**Fresh installations also prepare IPv4 forwarding, subnet-scoped NAT and automatic WireGuard startup.** The uplink is detected from the default IPv4 route. Active UFW/firewalld or custom input/forward rules require administrator-managed setup with `--no-network`; the installer stops with an explanation instead of silently reporting success. Existing installations retain their networking unless you request `--configure-network`. Set the public endpoint in Settings and allow the VPN UDP port in your provider firewall (default 51820). Direct panel access also requires TCP 8787 to be allowed by your host/provider firewall. A loopback-only listener may still use HTTP. Public listeners always use HTTPS, even when an older service file still contains `--allow-http`. Accepting an unverified certificate warning encrypts traffic but does not authenticate the server against an active intermediary; verify the fingerprint or use a trusted certificate.
 
 Full steps, upgrades, offline file transfer, and troubleshooting: **[Installation guide](INSTALL.md)**.
 

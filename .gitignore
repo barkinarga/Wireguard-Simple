@@ -10,6 +10,7 @@ node_modules/
 *.db-shm
 *.log
 setup-token
+panel-tls.pem
 coverage.out
 docs/screenshots/*
 !docs/screenshots/overview.png

@@ -34,7 +34,7 @@ On your own computer, replace `user@server` with your SSH login and keep this co
 ssh -L 8787:127.0.0.1:8787 user@server
 ```
 
-Open **http://127.0.0.1:8787**. If that local port is already used by a demo or another program, use `ssh -L 8788:127.0.0.1:8787 user@server` and open **http://127.0.0.1:8788** instead.
+On a fresh installation, open **https://127.0.0.1:8787**, including through this SSH tunnel. If that local port is already used by a demo or another program, use `ssh -L 8788:127.0.0.1:8787 user@server` and open **https://127.0.0.1:8788** instead. A preserved loopback-only HTTP service still uses an `http://` address.
 
 For first-run setup, read the token on the server:
 
@@ -44,7 +44,19 @@ sudo cat /var/lib/wgsimple/setup-token
 
 Enter it in the setup screen and create your administrator account. Keep the token private. Its file is removed after setup; future logins use your username and password. The interface defaults to English; a language selector is available before sign-in and in the top bar, with 10 embedded languages.
 
-On a fresh installation, the panel also listens on `0.0.0.0:8787`. Open the detected `http://SERVER_IP:8787` address directly if TCP 8787 is allowed by the host/provider firewall. Detection uses an address assigned to the server; behind NAT, use the mapped public address. No external IP lookup service is called. HTTP sends passwords, session cookies, and configurations without encryption. Use the SSH tunnel or configure TLS on untrusted networks. The installer does not automatically open firewall ports.
+On a fresh installation, the panel listens on `0.0.0.0:8787` using **HTTPS**. Open the detected `https://SERVER_IP:8787` address directly if TCP 8787 is allowed by the host/provider firewall. Detection uses an address assigned to the server; behind NAT, use the mapped public address. No external IP lookup service is called. The installer does not automatically open firewall ports.
+
+Without a custom TLS certificate, the application creates `/var/lib/wgsimple/panel-tls.pem` (or `<data-dir>/panel-tls.pem`), a single private `0600` file containing a server-specific self-signed certificate and private key. The same identity is reused across restarts/upgrades. Do not share or publish this file. It is valid for ten years; invalid, expired, symlinked or permissively readable automatic identities stop startup rather than falling back to HTTP. To deliberately replace it, stop the service, preserve the old file privately if needed, remove it, restart, and verify the new fingerprint.
+
+**A browser certificate warning is expected.** Most browsers allow an exception, although browser/device policy may forbid it. Verify the certificate's SHA-256 fingerprint using your trusted SSH connection before accepting:
+
+```bash
+sudo openssl x509 -in /var/lib/wgsimple/panel-tls.pem -noout -fingerprint -sha256
+```
+
+Self-signed HTTPS encrypts traffic, but blindly accepting any warning does not authenticate the server against an active intermediary. A trusted custom certificate or explicitly trusting the verified self-signed identity avoids that uncertainty. No Cloudflare, domain name or certificate service is needed for direct IP access. Interface addresses, loopback and the initial configured HTTPS origin are included in the generated certificate; accessing a different/NAT address may also produce a name warning. Browser policy can require trusting the certificate explicitly.
+
+Only a **loopback-bound** service may remain plaintext HTTP. A public TLS listener also uses HTTPS when reached via loopback or an SSH tunnel; it does not serve both protocols on the same port.
 
 ## 3. Prepare VPN connectivity
 
@@ -85,7 +97,7 @@ During an actual update the panel briefly restarts; existing clients, administra
 | Restart the panel | `sudo systemctl restart wgsimple.service` |
 | Stop the panel | `sudo systemctl stop wgsimple.service` |
 
-An upgrade preserves the interface in the existing service file. With custom HTTPS/origin settings, the installer's loopback health check may not apply; install using `--no-start` and start the service with your own configuration.
+An upgrade preserves the interface and existing service file. Non-loopback listeners automatically migrate to HTTPS, including units containing the deprecated `--allow-http` flag; change bookmarks to `https://`. An explicit public `--origin http://...` must be changed to HTTPS before starting the new binary. Existing custom TLS certificates are preserved. With custom origin restrictions, the installer's loopback health check may not apply; install using `--no-start` and start the service with your own configuration. The readiness check skips certificate verification only for its credential-free loopback HTTPS probe; release downloads still verify HTTPS normally.
 
 Stopping the panel leaves an existing WireGuard interface running, but disables monitoring and client expiry enforcement until the panel runs again. Fresh installations use the dedicated network bootstrap at boot. Existing installations keep their previous startup policy; use `--configure-network` to opt into managed IPv4 networking.
 
@@ -109,14 +121,14 @@ Use `local` instead of `public` to recover to loopback-only admission, or `lan` 
 
 ### Upgrading a previous loopback-only installation
 
-Upgrades preserve the existing service listener. If it still uses `--listen 127.0.0.1:8787`, the panel policy cannot make that socket public. After upgrading to v0.3.0 or newer, run `sudo systemctl edit --full wgsimple.service` and replace only `--listen 127.0.0.1:8787` with `--listen 0.0.0.0:8787 --allow-http` in `ExecStart`, preserving all other arguments. Then run:
+Upgrades preserve the existing service listener. If it still uses `--listen 127.0.0.1:8787`, the panel policy cannot make that socket public. Run `sudo systemctl edit --full wgsimple.service` and replace only `--listen 127.0.0.1:8787` with `--listen 0.0.0.0:8787` in `ExecStart`, preserving all other arguments. HTTPS is enabled automatically with the private self-signed identity. Then run:
 
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl restart wgsimple.service
 ```
 
-For TLS instead of unencrypted public HTTP, omit `--allow-http` and supply `--tls-cert`, `--tls-key`, and an explicit HTTPS `--origin`. That canonical origin controls which address the browser must use.
+To use a trusted custom certificate instead of the automatic self-signed certificate, supply `--tls-cert`, `--tls-key`, and an explicit HTTPS `--origin`. That canonical origin controls which address the browser must use. A hostname URL requires the matching `--origin`; direct IP access works without one. `--allow-http` is accepted only for old service-file compatibility and can no longer enable public HTTP. Invalid custom certificates/keys prevent startup without replacing them or falling back to plaintext.
 
 ## Ubuntu 26 startup compatibility
 

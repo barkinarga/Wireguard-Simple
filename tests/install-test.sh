@@ -123,11 +123,12 @@ mkdir "$TEST_DIR/first"
   prepare_case "$TEST_DIR/first"
   ip() { printf '%s\n' '2: eth0 inet 198.51.100.10/24 brd 198.51.100.255 scope global eth0'; }
   wgs_install > "$CASE_DIR/output"
-  grep -q 'Panel ready: http://127.0.0.1:8787' "$CASE_DIR/output"
-  grep -q 'Panel ready: http://198.51.100.10:8787' "$CASE_DIR/output"
+  grep -q 'Panel ready: https://127.0.0.1:8787' "$CASE_DIR/output"
+  grep -q 'Panel ready: https://198.51.100.10:8787' "$CASE_DIR/output"
   assert_equal "$(cat "$WGS_BIN_DIR/wgsimple")" new-binary
   [[ -f $CASE_DIR/active && -f $CASE_DIR/enabled ]]
-  grep -q -- '--listen 0.0.0.0:8787 --allow-http' "$WGS_UNIT_DIR/wgsimple.service"
+  grep -q -- '--listen 0.0.0.0:8787 --data-dir' "$WGS_UNIT_DIR/wgsimple.service"
+  ! grep -q -- '--allow-http' "$WGS_UNIT_DIR/wgsimple.service"
   grep -q 'CapabilityBoundingSet=CAP_NET_ADMIN' "$WGS_UNIT_DIR/wgsimple.service"
   [[ ! -e $WGS_STATE_DIR/telemetry.db ]]
 )
@@ -205,3 +206,31 @@ mkdir "$TEST_DIR/network-failure"
   grep -q 'network preparation failed' "$CASE_DIR/output"
 )
 printf '%s\n' 'PASS failed network bootstrap never reports successful installation'
+
+# Exercise the real readiness function: other installer cases mock it above.
+for transport in https http; do
+  (
+    source "$ROOT/scripts/install.sh"
+    calls=$TEST_DIR/health-$transport
+    systemctl() { return 0; }
+    curl() {
+      printf '%s\n' "$*" >> "$calls"
+      local url=${!#}
+      if [[ $url == https://127.0.0.1:8787/healthz ]]; then
+        [[ $* == *--insecure* ]] || return 1
+        [[ $transport == https ]]
+      elif [[ $url == http://127.0.0.1:8787/healthz ]]; then
+        [[ $* != *--insecure* && $transport == http ]]
+      else return 1; fi
+    }
+    wgs_ready
+    grep -q 'https://127.0.0.1:8787/healthz' "$calls"
+    if [[ $transport == https ]]; then
+      [[ $(wc -l < "$calls") -eq 1 ]]
+    else
+      [[ $(wc -l < "$calls") -eq 2 ]]
+      grep -q 'http://127.0.0.1:8787/healthz' "$calls"
+    fi
+  )
+done
+printf '%s\n' 'PASS self-signed HTTPS readiness and preserved loopback HTTP fallback'
