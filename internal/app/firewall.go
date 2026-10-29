@@ -489,6 +489,62 @@ func (f *firewall) configure(ctx context.Context, s Server, uplink string, panel
 	return nil
 }
 
+// The WAN zone permits direct access; tunnel traffic enters through a different
+// interface/zone and needs its own narrowly scoped host-input permission.
+// Call only after confirming an application-owned managed NAT table exists.
+func (f *firewall) vpnPanel(ctx context.Context, s Server, port int) error {
+	if port == 0 || f.kind == "none" {
+		return nil
+	}
+	prefix, err := netip.ParsePrefix(s.Address)
+	if err != nil || !prefix.Addr().Is4() || !ValidInterface(s.Interface) || port < 1 || port > 65535 {
+		return errors.New("Invalid VPN panel permission")
+	}
+	subnet := prefix.Masked().String()
+	if f.kind == "ufw" {
+		// configure has already refused explicit deny/reject/limit rules.
+		return f.ufwAdd(ctx, "allow", "in", "on", s.Interface, "proto", "tcp", "from", subnet, "to", "0.0.0.0/0", "port", strconv.Itoa(port))
+	}
+	if f.kind != "firewalld" {
+		return errors.New("Unsupported firewall manager")
+	}
+	rich := fmt.Sprintf(`rule family="ipv4" source address="%s" port port="%d" protocol="tcp" accept`, subnet, port)
+	// Inspect both scopes before adding anything. Do not expand a custom zone,
+	// overwrite administrator rules, or reload unrelated runtime configuration.
+	for _, permanent := range []bool{false, true} {
+		zone, err := f.zoneFor(ctx, s.Interface, permanent)
+		if err != nil || zone != firewallZone {
+			return errors.New("VPN panel access requires the managed firewalld zone")
+		}
+		var scope []string
+		if permanent {
+			scope = []string{"--permanent"}
+		}
+		scope = append(scope, "--zone="+firewallZone)
+		if permanent {
+			// firewalld exposes zone descriptions only in permanent configuration.
+			owner, err := f.call(ctx, append(append([]string{}, scope...), "--get-description")...)
+			if err != nil || owner != firewallOwner {
+				return errors.New("VPN panel zone is not owned by WireGuard Simple")
+			}
+		}
+		zoneConfig, err := f.call(ctx, append(append([]string{}, scope...), "--list-all")...)
+		if err != nil || firewallField(zoneConfig, "target") != "default" || firewallField(zoneConfig, "interfaces") != s.Interface || firewallField(zoneConfig, "sources") != "" || firewallField(zoneConfig, "services") != "" || firewallField(zoneConfig, "ports") != "" {
+			return errors.New("VPN panel zone has custom settings; reconcile manually")
+		}
+		rules, err := f.call(ctx, append(append([]string{}, scope...), "--list-rich-rules")...)
+		if err != nil || rules != "" && rules != rich {
+			return errors.New("VPN panel rules differ; reconcile manually")
+		}
+	}
+	for _, scope := range [][]string{{"--permanent", "--zone=" + firewallZone}, {"--zone=" + firewallZone}} {
+		if err := f.fwAdd(ctx, scope, "--query-rich-rule="+rich, "--add-rich-rule="+rich, "--remove-rich-rule="+rich); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Port permissions are separate from bootstrap so existing installations can preserve their routing.
 func PrepareFirewall(ctx context.Context, store *Store, listen string) (string, error) {
 	if runtime.GOOS != "linux" || os.Geteuid() != 0 {
@@ -510,7 +566,8 @@ func PrepareFirewall(ctx context.Context, store *Store, listen string) (string, 
 	if err != nil {
 		return "", err
 	}
-	if _, err := inspectManagedInternetRules(rules, f.kind); err != nil {
+	managed, err := inspectManagedInternetRules(rules, f.kind)
+	if err != nil {
 		return "", err
 	}
 	routes, err := command(ctx, "ip", []string{"-j", "-4", "route", "show", "default"}, "")
@@ -521,7 +578,11 @@ func PrepareFirewall(ctx context.Context, store *Store, listen string) (string, 
 	if err != nil {
 		return "", err
 	}
-	if err := f.configure(ctx, s, uplink, port, false); err != nil {
+	err = f.configure(ctx, s, uplink, port, false)
+	if err == nil && managed {
+		err = f.vpnPanel(ctx, s, port)
+	}
+	if err != nil {
 		if undoErr := f.rollback(ctx); undoErr != nil {
 			return "", fmt.Errorf("%w; %v", err, undoErr)
 		}

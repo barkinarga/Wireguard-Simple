@@ -114,3 +114,48 @@ func TestPanelHTTPAdmissionAndRecovery(t *testing.T) {
 		t.Fatal("broken policy should fail closed")
 	}
 }
+
+func TestVPNPanelAdmissionModesAndAllowlist(t *testing.T) {
+	store, _, server := fixture(t, "live")
+	policy, err := readPanelAccess(store.dir)
+	if err != nil || policy.Mode != "public" || !policy.allows("10.64.0.2:9000") {
+		t.Fatal("fresh install must admit VPN source by default", policy, err)
+	}
+	for _, tc := range []struct {
+		mode, source, entry string
+		allowed             bool
+	}{
+		{"public", "10.64.0.2", "", true}, {"local", "10.64.0.2", "", false}, {"lan", "10.64.0.2", "", true},
+		{"public", "10.64.0.2", "10.64.0.2", true}, {"public", "10.64.0.2", "10.64.0.0/24", true}, {"public", "10.64.0.2", "10.64.0.3", false},
+		{"lan", "10.64.0.2", "10.64.0.2", true}, {"lan", "10.64.0.2", "10.64.0.3", false},
+		{"local", "10.64.0.2", "10.64.0.2", false}, {"lan", "198.51.100.8", "198.51.100.8", false},
+		{"local", "127.0.0.1", "10.64.0.3", true},
+	} {
+		p := PanelAccess{Mode: tc.mode}
+		if tc.entry != "" {
+			p.Allowlist = []string{tc.entry}
+		}
+		server.access.Lock()
+		server.access.config = p
+		server.access.Unlock()
+		for _, path := range []string{"/api/session", "/healthz", "/api/snapshot"} {
+			r := httptest.NewRequest("GET", "https://198.51.100.1:8787"+path, nil)
+			r.RemoteAddr = tc.source + ":9000"
+			// A blocked VPN client cannot pretend to be loopback or an allowed client.
+			r.Header.Set("X-Forwarded-For", "127.0.0.1")
+			r.Header.Set("Forwarded", "for=10.64.0.3")
+			w := httptest.NewRecorder()
+			server.Handler().ServeHTTP(w, r)
+			want := 403
+			if tc.allowed {
+				want = 200
+				if path == "/api/snapshot" {
+					want = 401
+				}
+			}
+			if w.Code != want {
+				t.Fatalf("%+v %s: want %d got %d", tc, path, want, w.Code)
+			}
+		}
+	}
+}

@@ -45,7 +45,7 @@ The command extracts the installer into a temporary directory, checks architectu
 
 ## Firewall integration checks
 
-Dedicated disposable privileged CI containers exercise Ubuntu UFW and Fedora firewalld with private network namespaces, actual WireGuard handshakes, scoped NAT/forwarding, external HTTPS panel probes, reload persistence and preservation of an existing SSH port permission. No host networking or writable host-system mounts are used. These tests do not validate every distribution, cloud-provider firewall, physical host reboot, custom policy or concurrent administrator firewall changes. Do not edit firewall rules concurrently with installation.
+Dedicated disposable privileged CI containers exercise Ubuntu UFW and Fedora firewalld with private network namespaces, actual WireGuard handshakes, scoped NAT/forwarding, external and tunneled HTTPS panel probes, Access mode/allowlist checks through the VPN, refusal of unrelated host services, reload persistence and preservation of an existing SSH port permission. No host networking or writable host-system mounts are used. These tests do not validate every distribution, cloud-provider firewall, physical host reboot, custom policy or concurrent administrator firewall changes. Do not edit firewall rules concurrently with installation.
 
 ## Minimal images and executable-package bootstrap
 

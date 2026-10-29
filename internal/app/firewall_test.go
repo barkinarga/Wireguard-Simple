@@ -283,3 +283,120 @@ func TestFirewalldHeaderMarkersAndAmbiguousQueries(t *testing.T) {
 		t.Fatal("query failure scheduled deletion")
 	}
 }
+
+func TestVPNPanelUFWOnlyAllowsPanelFromSubnet(t *testing.T) {
+	var calls []string
+	f := &firewall{kind: "ufw", run: func(_ context.Context, name string, args []string, _ string) ([]byte, error) {
+		calls = append(calls, name+" "+strings.Join(args, " "))
+		return []byte("Rule added"), nil
+	}}
+	s := DefaultServer("wg0")
+	s.Address = "10.8.0.1/24"
+	if err := f.vpnPanel(context.Background(), s, 9443); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 1 || calls[0] != "ufw allow in on wg0 proto tcp from 10.8.0.0/24 to 0.0.0.0/0 port 9443" {
+		t.Fatal(calls)
+	}
+	if err := f.rollback(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 2 || !strings.Contains(calls[1], "--force delete allow in on wg0") {
+		t.Fatal(calls)
+	}
+	calls = nil
+	if err := f.vpnPanel(context.Background(), s, 0); err != nil || len(calls) != 0 {
+		t.Fatal(err, calls)
+	}
+}
+
+func TestVPNPanelFirewalldScopesIdempotenceAndRollback(t *testing.T) {
+	ctx := context.Background()
+	s := DefaultServer("wg0")
+	rich := `rule family="ipv4" source address="10.64.0.0/24" port port="9443" protocol="tcp" accept`
+	for _, scenario := range []string{"fresh", "existing", "runtime-failure", "custom", "unowned"} {
+		t.Run(scenario, func(t *testing.T) {
+			present := map[bool]bool{false: scenario == "existing", true: scenario == "existing"}
+			var changes []string
+			f := &firewall{kind: "firewalld", run: func(_ context.Context, _ string, args []string, _ string) ([]byte, error) {
+				call := strings.Join(args, " ")
+				permanent := slices.Contains(args, "--permanent")
+				switch {
+				case slices.Contains(args, "--list-all-zones"):
+					return []byte("public\n interfaces: eth0\n sources:\nwgsimple-vpn\n interfaces: wg0\n sources:"), nil
+				case slices.Contains(args, "--get-description"):
+					if !permanent {
+						t.Fatal("zone descriptions require --permanent", call)
+					}
+					if scenario == "unowned" {
+						return []byte("administrator zone"), nil
+					}
+					return []byte(firewallOwner), nil
+				case slices.Contains(args, "--list-all"):
+					return []byte("wgsimple-vpn\n target: default\n interfaces: wg0\n sources:\n services:\n ports:"), nil
+				case slices.Contains(args, "--list-rich-rules"):
+					if scenario == "custom" {
+						return []byte(`rule family="ipv4" source address="10.64.0.0/24" accept`), nil
+					}
+					if present[permanent] {
+						return []byte(rich), nil
+					}
+					return nil, nil
+				case strings.Contains(call, "--query-rich-rule="):
+					if present[permanent] {
+						return nil, nil
+					}
+					return nil, firewallQueryAbsent{}
+				case strings.Contains(call, "--add-rich-rule="):
+					if scenario == "runtime-failure" && !permanent {
+						return nil, errors.New("runtime add failed")
+					}
+					if !strings.Contains(call, rich) {
+						t.Fatal(call)
+					}
+					present[permanent] = true
+					changes = append(changes, call)
+					return nil, nil
+				case strings.Contains(call, "--remove-rich-rule="):
+					present[permanent] = false
+					changes = append(changes, call)
+					return nil, nil
+				default:
+					t.Fatal("Unexpected firewall mutation or query", call)
+					return nil, nil
+				}
+			}}
+			err := f.vpnPanel(ctx, s, 9443)
+			wantError := scenario == "runtime-failure" || scenario == "custom" || scenario == "unowned"
+			if (err != nil) != wantError {
+				t.Fatal(err)
+			}
+			if scenario == "fresh" {
+				if len(changes) != 2 || !present[false] || !present[true] {
+					t.Fatal(changes, present)
+				}
+				if err := f.vpnPanel(ctx, s, 9443); err != nil || len(changes) != 2 {
+					t.Fatal("duplicate add", err, changes)
+				}
+			}
+			if scenario == "existing" && len(changes) != 0 {
+				t.Fatal("pre-existing rule changed", changes)
+			}
+			if scenario == "custom" || scenario == "unowned" {
+				if len(changes) != 0 {
+					t.Fatal("unsafe zone mutated", changes)
+				}
+			}
+			if err := f.rollback(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if scenario == "existing" {
+				if !present[false] || !present[true] {
+					t.Fatal("pre-existing permission removed")
+				}
+			} else if present[false] || present[true] {
+				t.Fatal("new permission not rolled back", present)
+			}
+		})
+	}
+}

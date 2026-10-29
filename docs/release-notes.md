@@ -1,9 +1,10 @@
-# WireGuard Simple v0.4.13
+# WireGuard Simple v0.4.14
 
-Keep client creation stable when advanced settings are expanded, and keep navigation labels on one line.
+Permit panel access through the managed VPN by default, while preserving application access restrictions.
 
-- Use a fixed 640px client-dialog width, constrained to the viewport. Keep its top/left position unchanged when expanding advanced options; grow downward up to the available height, then scroll the form body while actions remain visible.
-- Keep advanced fields in two columns where space permits and one column on small screens. Remove the width-changing toggle class and redundant independent-key information box.
-- Give desktop/tablet navigation enough width for the complete English Storage & monitoring label, including its selected state. Keep labels on one line and provide full translated labels as hover titles if truncation is needed.
+- Fix the case where Internet forwarding worked but the same public panel URL timed out inside the tunnel: WAN permissions did not cover host input on the VPN interface/zone.
+- With an application-owned NAT table, add only the configured non-loopback panel TCP port from the saved IPv4 VPN subnet on the VPN interface. Support native UFW and the owned firewalld VPN zone, in runtime and permanent configuration, without reload or changes to SSH, unrelated services or default policies.
+- Retain strict zone ownership/custom-rule checks, idempotence and rollback of only newly added rules. Loopback listeners and administrator-managed networking do not gain VPN panel permissions automatically.
+- Keep Public access as the fresh default. This server only still rejects VPN requests; Private networks only accepts the default private VPN source. In both public/private modes, an IP allowlist remains an additional restriction. Authentication and forwarded-header protections are unchanged.
 
-Validation: TypeScript/build, translation and client-address tests. Real-browser measurements verify identical 640px width, left and top positions before/after repeated toggles; selected navigation fits on a single line at 1440px and 1024px. At 320px, fields use one column, no horizontal page overflow occurs, and footer actions remain reachable when scrolling to the last field.
+Validation: backend suite/vet; scoped port, ownership, idempotence and rollback regressions; VPN-source HTTP mode/allowlist/authentication cases. Native UFW/firewalld release tests probe both WAN and real WireGuard panel access, all access modes and IP/CIDR allowlists, a denied listening host service, and firewall reload persistence. The reported CentOS server was repaired using the same narrow rule without restarting its VPN/panel; the user confirmed VPN panel access works.

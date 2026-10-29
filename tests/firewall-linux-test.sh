@@ -21,6 +21,7 @@ for link in lo br0 server-wan client-wan; do ip -n internet link set "$link" up;
 ip -n internet addr add 198.18.0.1/24 dev br0
 ip -n internet addr add 203.0.113.9/32 dev lo
 ip addr add 198.18.0.2/24 dev eth0
+ip addr add 198.18.0.4/24 dev eth0
 ip link set eth0 up
 ip route add default via 198.18.0.1
 ip -n client link set lo up
@@ -95,7 +96,7 @@ prepare --prepare-network
 echo "Client: create WireGuard interface"
 ip -n client link add wgtest type wireguard
 echo "Client: configure peer using a key pipe"
-cat /test/client.key | ip netns exec client wg set wgtest private-key /dev/stdin peer "$(cat /test/server.pub)" allowed-ips 0.0.0.0/0 endpoint 198.18.0.2:51820 persistent-keepalive 1
+cat /test/client.key | ip netns exec client wg set wgtest private-key /dev/stdin peer "$(cat /test/server.pub)" allowed-ips 0.0.0.0/0 endpoint 198.18.0.4:51820 persistent-keepalive 1
 ip -n client addr add 10.64.0.2/32 dev wgtest
 ip -n client link set wgtest up
 ip -n client route add 203.0.113.9/32 dev wgtest
@@ -109,8 +110,52 @@ for attempt in {1..30}; do
   sleep .2
 done
 grep -q '"status":"ok"' /test/health.json
+# The same public panel address must work through WireGuard, not just the WAN.
+# Use a separate underlay alias for the UDP transport so routing the public
+# panel /32 into the VPN cannot route WireGuard's own packets into itself.
+ip -n client route add 198.18.0.2/32 dev wgtest
+ip -n client -4 route get 198.18.0.2 | grep -Eq 'dev wgtest.*src 10\.64\.0\.2'
+ip netns exec client curl --noproxy '*' -kfsS --max-time 5 https://198.18.0.2:8787/healthz
+# Other host services are still denied through the tunnel. A real listener
+# distinguishes firewall filtering from merely finding a closed port.
+python3 -m http.server 18787 --bind 0.0.0.0 > /test/private-service.log 2>&1 &
+private_pid=$!
+trap 'kill "$panel_pid" "$private_pid" 2>/dev/null || true' EXIT
+for attempt in {1..20}; do if curl -fsS --max-time 1 http://127.0.0.1:18787/ >/dev/null 2>&1; then break; fi; sleep .1; done
+curl -fsS --max-time 1 http://127.0.0.1:18787/ >/dev/null
+if ip netns exec client curl --noproxy '*' -fsS --max-time 2 http://198.18.0.2:18787/ >/dev/null 2>&1; then echo 'Unrelated host service unexpectedly reachable'; exit 1; fi
+# HTTP admission still controls VPN clients after the firewall permits TCP.
+# Restart only the disposable test panel to load each saved policy; VPN stays up.
+check_policy() {
+  local mode=$1 entry=$2 expected=$3 code
+  kill "$panel_pid"; wait "$panel_pid" || true
+  python3 - "$mode" "$entry" <<'PY'
+import json,sys
+from pathlib import Path
+Path('/test/state/panel-access.json').write_text(json.dumps(dict(mode=sys.argv[1],allowlist=[sys.argv[2]] if sys.argv[2] else [])))
+PY
+  "$binary" --data-dir /test/state --config-dir /test/wireguard --listen 0.0.0.0:8787 > /test/panel.log 2>&1 &
+  panel_pid=$!
+  for attempt in {1..30}; do
+    if curl --noproxy '*' -kfsS --max-time 1 https://127.0.0.1:8787/healthz >/dev/null 2>&1; then break; fi
+    sleep .2
+  done
+  curl --noproxy '*' -kfsS --max-time 1 https://127.0.0.1:8787/healthz >/dev/null
+  code=$(ip netns exec client curl --noproxy '*' -ksS --max-time 5 -o /test/policy-response -w '%{http_code}' https://198.18.0.2:8787/api/session)
+  [[ $code == "$expected" ]] || { echo "Policy $mode [$entry]: expected $expected, got $code"; exit 1; }
+}
+check_policy public '' 200
+check_policy local '' 403
+check_policy lan '' 200
+for mode in public lan; do
+  check_policy "$mode" 10.64.0.2 200
+  check_policy "$mode" 10.64.0.0/24 200
+  check_policy "$mode" 10.64.0.3 403
+done
+check_policy local 10.64.0.2 403
+check_policy public '' 200
 # Manager reloads must keep permissions and the independent scoped NAT table.
 if [[ $manager == ufw ]]; then ufw reload; else firewall-cmd --reload; fi
 ip netns exec client curl --noproxy '*' -kfsS --max-time 3 https://198.18.0.2:8787/healthz
 ip netns exec client ping -c 2 -W 3 203.0.113.9
-echo "PASS $manager: preserved SSH rule, panel access, real WireGuard handshake, forwarding, NAT, idempotence and firewall reload"
+echo "PASS $manager: preserved SSH, WAN and VPN panel access, Access modes/allowlist enforced over VPN, other host services denied, real WireGuard handshake, forwarding, NAT, idempotence and firewall reload"
