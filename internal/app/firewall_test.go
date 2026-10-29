@@ -148,6 +148,28 @@ func TestFirewalldRuntimeDifferencesPreventReload(t *testing.T) {
 	}
 }
 
+func TestFirewalldUnboundInterfaceUsesGlobalDefaultZone(t *testing.T) {
+	f := &firewall{run: func(_ context.Context, _ string, args []string, _ string) ([]byte, error) {
+		s := strings.Join(args, " ")
+		if strings.Contains(s, "--get-default-zone") {
+			if strings.Contains(s, "--permanent") {
+				t.Fatal("default zone is a standalone global query")
+			}
+			return []byte("public"), nil
+		}
+		if strings.Contains(s, "--get-zones") {
+			return []byte("public"), nil
+		}
+		return nil, nil
+	}}
+	for _, permanent := range []bool{false, true} {
+		zone, err := f.zoneFor(context.Background(), "eth0", permanent)
+		if err != nil || zone != "public" {
+			t.Fatal(zone, err)
+		}
+	}
+}
+
 func TestManagedFirewallInspectionRejectsMixedCustomFilters(t *testing.T) {
 	for _, tc := range []struct {
 		manager, raw string

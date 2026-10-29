@@ -79,8 +79,10 @@ db.execute('insert into peers(id,public_key,value) values(?,?,?)',('integration'
 db.commit()
 PY
 prepare --prepare-network
+echo "Client: create WireGuard interface"
 ip -n client link add wgtest type wireguard
-ip netns exec client wg set wgtest private-key /dev/stdin peer "$(cat /test/server.pub)" allowed-ips 0.0.0.0/0 endpoint 198.18.0.2:51820 persistent-keepalive 1 < /test/client.key
+echo "Client: configure peer using a key pipe"
+cat /test/client.key | ip netns exec client wg set wgtest private-key /dev/stdin peer "$(cat /test/server.pub)" allowed-ips 0.0.0.0/0 endpoint 198.18.0.2:51820 persistent-keepalive 1
 ip -n client addr add 10.64.0.2/32 dev wgtest
 ip -n client link set wgtest up
 ip -n client route add 203.0.113.9/32 dev wgtest

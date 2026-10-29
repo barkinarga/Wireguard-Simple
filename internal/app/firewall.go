@@ -189,7 +189,7 @@ func (f *firewall) zoneFor(ctx context.Context, iface string, permanent bool) (s
 		}
 	}
 	if selected == "" {
-		selected, err = f.call(ctx, append(prefix, "--get-default-zone")...)
+		selected, err = f.call(ctx, "--get-default-zone")
 	}
 	if err != nil || !firewallName(selected) {
 		return "", errors.New("Cannot determine firewalld interface zone")
