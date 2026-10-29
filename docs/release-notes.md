@@ -1,11 +1,9 @@
-# WireGuard Simple v0.4.12
+# WireGuard Simple v0.4.13
 
-Improve readability throughout the existing panel without changing its visual identity or VPN behavior.
+Keep client creation stable when advanced settings are expanded, and keep navigation labels on one line.
 
-- Centralize active text sizes as shared relative tokens: 12px helper/status text, 14px body/actions and 16/18px supporting headings at the default browser font size. Keep mobile inputs at 16px and icon targets at 44px.
-- Correct faint storage totals/capacity, client details/public keys, summary counters and passive badges. Apply consistent text, status, disabled, placeholder, focus and destructive-action colors across pages, dialogs and authentication.
-- Keep numeric counters tabular, allow long names/keys and translated controls to wrap, and keep narrow layouts within the viewport. Demo free disk space is unavailable rather than a false zero; existing off/paused/empty/loading states remain distinct.
-- Preserve table horizontal scroll and page scroll across live refreshes. Defer full content redraw while scrolling, selecting text or focusing a main-content control. Avoid rebuilding unchanged connection-status markup and remove remaining active-theme dialog backdrop blur.
-- Show persistent inline form errors, retain inputs after failed submissions, prevent duplicate submissions and expose pending state. Failed sign-in/setup attempts no longer rebuild an already unauthenticated form; authenticated-session expiration still returns to sign-in.
+- Use a fixed 640px client-dialog width, constrained to the viewport. Keep its top/left position unchanged when expanding advanced options; grow downward up to the available height, then scroll the form body while actions remain visible.
+- Keep advanced fields in two columns where space permits and one column on small screens. Remove the width-changing toggle class and redundant independent-key information box.
+- Give desktop/tablet navigation enough width for the complete English Storage & monitoring label, including its selected state. Keep labels on one line and provide full translated labels as hover titles if truncation is needed.
 
-Validation includes TypeScript/build, translation and script-size checks, client-address regressions, real-browser computed text-size/contrast checks across all five pages and principal dialogs/authentication, 320px mobile and 640px reflow, Turkish labels, duplicate-client error handling and saved-input checks. Full build/platform/firewall release gates remain required.
+Validation: TypeScript/build, translation and client-address tests. Real-browser measurements verify identical 640px width, left and top positions before/after repeated toggles; selected navigation fits on a single line at 1440px and 1024px. At 320px, fields use one column, no horizontal page overflow occurs, and footer actions remain reachable when scrolling to the last field.
