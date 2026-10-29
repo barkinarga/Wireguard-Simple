@@ -20,10 +20,11 @@ const firewallPolicy = "wgsimple-egress"
 
 type firewallRunner func(context.Context, string, []string, string) ([]byte, error)
 type firewall struct {
-	kind     string
-	run      firewallRunner
-	undo     [][]string
-	reloaded bool
+	kind                          string
+	run                           firewallRunner
+	undo                          [][]string
+	reloaded                      bool
+	restoreInterface, restoreZone string
 }
 
 func detectFirewall(ctx context.Context, run firewallRunner, lookup func(string) (string, error)) (*firewall, error) {
@@ -81,10 +82,34 @@ func (f *firewall) rollback(ctx context.Context) error {
 		if _, err := f.call(context.WithoutCancel(ctx), "--reload"); err != nil {
 			result = errors.New("Firewall rollback reload failed; inspect the managed rules")
 		}
+		if err := f.restoreRuntimeBinding(context.WithoutCancel(ctx)); err != nil {
+			result = errors.Join(result, err)
+		}
 	}
 	f.undo = nil
 	f.reloaded = false
 	return result
+}
+
+func (f *firewall) restoreRuntimeBinding(ctx context.Context) error {
+	if f.restoreInterface == "" {
+		return nil
+	}
+	_, err := f.call(ctx, "--zone="+f.restoreZone, "--query-interface="+f.restoreInterface)
+	if err == nil {
+		return nil
+	}
+	var status interface{ ExitCode() int }
+	if !errors.As(err, &status) || status.ExitCode() != 1 {
+		return errors.New("Cannot verify the previous runtime uplink binding")
+	}
+	// Restore only the binding observed before setup; never persist unrelated
+	// runtime configuration or move an interface out of another zone.
+	_, err = f.call(ctx, "--zone="+f.restoreZone, "--add-interface="+f.restoreInterface)
+	if err != nil {
+		return errors.New("Could not restore the previous runtime uplink binding")
+	}
+	return nil
 }
 
 func (f *firewall) ufwAdd(ctx context.Context, args ...string) error {
@@ -151,6 +176,10 @@ func (f *firewall) reloadPreflight(ctx context.Context, uplink string) error {
 			defaultZone, err := f.call(ctx, "--get-default-zone")
 			if err == nil {
 				equal = equivalentDefaultUplinkBinding(live, saved, defaultZone, uplink)
+				if equal {
+					f.restoreInterface = uplink
+					f.restoreZone = defaultZone
+				}
 			}
 		}
 		if !equal {
@@ -346,6 +375,9 @@ func (f *firewall) forwardingPolicy(ctx context.Context, iface, uplink, uplinkZo
 		if prefix == nil && !exists[0] {
 			f.reloaded = true
 			if _, err := f.call(ctx, "--reload"); err != nil {
+				return err
+			}
+			if err := f.restoreRuntimeBinding(ctx); err != nil {
 				return err
 			}
 			break

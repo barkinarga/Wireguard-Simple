@@ -180,6 +180,42 @@ func TestFirewalldDefaultUplinkBindingEquivalence(t *testing.T) {
 	}
 }
 
+func TestFirewalldRestoresOnlyObservedRuntimeBinding(t *testing.T) {
+	bound := false
+	var calls []string
+	f := &firewall{restoreInterface: "eth0", restoreZone: "public", reloaded: true, run: func(_ context.Context, _ string, args []string, _ string) ([]byte, error) {
+		call := strings.Join(args, " ")
+		calls = append(calls, call)
+		switch call {
+		case "--zone=public --query-interface=eth0":
+			if !bound {
+				return nil, firewallQueryAbsent{}
+			}
+		case "--zone=public --add-interface=eth0":
+			bound = true
+		case "--reload":
+			bound = false
+		default:
+			t.Fatal("Unexpected binding restoration command", call)
+		}
+		return nil, nil
+	}}
+	if err := f.restoreRuntimeBinding(context.Background()); err != nil || !bound {
+		t.Fatal(err, bound)
+	}
+	if len(f.undo) != 0 {
+		t.Fatal("Restoring a pre-existing binding must not schedule its removal")
+	}
+	if err := f.rollback(context.Background()); err != nil || !bound {
+		t.Fatal("Rollback lost original runtime binding", err, bound)
+	}
+	for _, call := range calls {
+		if strings.Contains(call, "--permanent") || strings.Contains(call, "remove-interface") {
+			t.Fatal("Pre-existing binding was persisted or removed", call)
+		}
+	}
+}
+
 func TestFirewalldUnboundInterfaceUsesGlobalDefaultZone(t *testing.T) {
 	f := &firewall{run: func(_ context.Context, _ string, args []string, _ string) ([]byte, error) {
 		s := strings.Join(args, " ")
