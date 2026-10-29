@@ -14,6 +14,8 @@
 
 A lightweight WireGuard management console for Debian, Ubuntu, RHEL, CentOS Stream, AlmaLinux, Rocky Linux, and Fedora, with an original interface, live monitoring, and optional history. Built independently in Go and TypeScript.
 
+**Supported server platforms:** Linux **amd64 and arm64** on Debian, Ubuntu and compatible derivatives, plus RHEL, CentOS Stream, AlmaLinux, Rocky Linux, and Fedora, subject to the [distribution requirements](#linux-distributions). Windows hosting and Windows demo builds are outside the project's support and validation scope.
+
 The compiled interface is embedded in the Go application. Your server needs **one application, WireGuard tools, nftables, and systemd**. No Node.js, separate frontend server, or database service is required at runtime.
 
 **Early development release:** Linux CI covers builds, backend tests, installer scenarios, executable-package bootstrap across supported distribution families, and real UFW/firewalld integration with WireGuard traffic and HTTPS panel access in disposable containers. Server checks include an Ubuntu 26.04.1 ARM64 KVM VPN test and the Ubuntu 22.04.5 ARM64 legacy nftables compatibility fix. External-device connectivity, full-machine reboot recovery, SELinux enforcement, and resource use across target distributions still need end-to-end validation.
@@ -60,7 +62,7 @@ Full steps, upgrades, offline file transfer, and troubleshooting: **[Installatio
 
 V2 is the default interface, with a responsive green design and sidebar navigation for client management, live monitoring, history, and settings. The original visual design remains available at `/?design=v1`.
 
-The executable defaults to live Linux operation. Demo mode requires an explicit `--mode demo`; Windows previews use simulated data and never configure VPN networking. See [Try the Windows demo](#try-the-windows-demo).
+The executable defaults to live Linux operation.
 
 ## Languages
 
@@ -134,28 +136,15 @@ flowchart LR
 
 The Go application manages the VPN; VPN packets flow through Linux WireGuard. Stopping the panel leaves an existing WireGuard interface running, but monitoring and expiry enforcement require the panel service to run.
 
-## Try the Windows demo
-
-With Go and Node.js installed, run these commands from the project folder in PowerShell to build and start the demo:
-
-```powershell
-npm.cmd ci
-.\scripts\build.ps1
-.\start-demo.ps1
-```
-
-Visit **http://127.0.0.1:8787**. Stop with Ctrl+C. Demo mode uses synthetic data and only listens on loopback. It does not install or invoke WireGuard, or change Windows networking, DNS, firewall rules, or services. Demo files stay in `.data/demo/`, separate from live data.
-
 ## Build from source
 
-Development requires **Go 1.26+ and Node.js**. CI currently uses Go 1.27.3 and Node.js 24. These build tools are not needed on the target server.
+Building on Linux requires **Go 1.26+ and Node.js**. CI currently uses Go 1.27.3 and Node.js 24. These build tools are not needed on the target server.
 
-```powershell
-npm.cmd ci
-.\scripts\build.ps1 -All
+```bash
+sh scripts/build.sh
 ```
 
-This produces Windows and Linux binaries plus `release/wgsimple-install.run`, containing both Linux architectures. On Linux, run `sh scripts/build.sh`; it installs frontend dependencies, checks and builds the interface, runs Go tests, and produces `bin/wgsimple` for the current architecture.
+The script installs frontend dependencies, checks and builds the interface, runs Go tests, and produces `bin/wgsimple` for the current Linux architecture. For a ready-made Linux installer, use [Installation](#installation).
 
 ```bash
 npm run check
