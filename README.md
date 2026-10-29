@@ -16,56 +16,9 @@ A lightweight WireGuard management console for Debian, Ubuntu, RHEL, CentOS Stre
 
 The compiled interface is embedded in the Go application. Your server needs **one application, WireGuard tools, nftables, and systemd**. No Node.js, separate frontend server, or database service is required at runtime.
 
-**Early development release:** builds, automated tests, and installer checks run in Linux CI. The interface startup fix was tested on an Ubuntu 26.04.1 ARM64 KVM server, including a real WireGuard handshake, internet ping, DNS and HTTPS from a temporary VPN client namespace on the same host. External-device connectivity, full-machine reboot recovery, SELinux enforcement, and resource use across target distributions still need end-to-end validation.
+**Early development release:** Linux CI covers builds, backend tests, installer scenarios, executable-package bootstrap across supported distribution families, and real UFW/firewalld integration with WireGuard traffic and HTTPS panel access in disposable containers. Server checks include an Ubuntu 26.04.1 ARM64 KVM VPN test and the Ubuntu 22.04.5 ARM64 legacy nftables compatibility fix. External-device connectivity, full-machine reboot recovery, SELinux enforcement, and resource use across target distributions still need end-to-end validation.
 
-## Interface
-
-V2 is the default interface for every installation. It keeps the green identity
-with simpler navigation, clearer controls, and more readable text on desktop
-and mobile. Secondary interface text uses a minimum 12px size; the server
-information card uses 12–16px text. The original visual design remains available
-at `/?design=v1`.
-
-The sidebar is the main navigation point. Repeated settings shortcuts, workspace
-placeholders, slogan cards, and the activity explanation strip have been removed.
-Existing client management, monitoring, recording, and access controls are kept.
-
-The executable defaults to live Linux operation. Demo mode requires an explicit
-`--mode demo`; Windows previews still use simulated data and never configure VPN
-networking, even though the interface no longer displays demo banners.
-
-## Languages
-
-The application starts in **English** and includes **10 embedded interface languages**: English, Turkish, German, French, Spanish, Italian, Portuguese, Russian, Arabic, and Simplified Chinese. Change language in the top bar or before sign-in. Your choice is remembered in this browser, and unsaved form fields are preserved when switching.
-
-Arabic includes a right-to-left layout. Dates, numbers, and relative times follow the selected language. Common validation messages and administrative events are translated; low-level WireGuard/OS diagnostics remain in English. Client names, keys, and configurations are never translated. No external translation service is used.
-
-Repository documentation is maintained in **English**. [Translation maintenance](docs/localization.md).
-
-## Preview
-
-![Desktop overview showing client status, traffic, and server health](docs/screenshots/overview.png)
-
-*V2 desktop preview. All displayed clients, addresses, traffic, and server details are synthetic sample data. These screenshots are not performance benchmarks.*
-
-<details>
-<summary>Mobile preview</summary>
-<br>
-<img src="docs/screenshots/mobile.png" alt="Mobile demo with responsive status cards and live traffic chart" width="375">
-</details>
-
-## What you can do
-
-| Area | Features |
-| --- | --- |
-| Manage clients | Create clients, allocate IPv4 addresses, generate keys, download configurations, and display locally generated QR codes. Pause, resume, delete, or set an expiry date. |
-| Observe the server | View traffic rates, recent handshakes, client counters, system health, and application memory from one dashboard. |
-| Configure WireGuard | Detect the server endpoint and host DNS defaults, or configure them manually. Expand Advanced settings when creating a client for per-client address, DNS, routing, endpoint, MTU, keepalive, listen port, FwMark and keys. Server imports reject executable hooks. |
-| Choose persistence | Enable traffic history and administrative event history separately, with retention and storage limits. Clear history without deleting client settings. |
-| Export metrics | Optionally enable Prometheus with a separate, read-only access token. |
-| Control access | First-run setup token, administrator login, Argon2id password hashing, expiring sessions, CSRF checks, and login rate limits in live mode. |
-
-## Install with one command
+## Installation
 
 Run this on a **supported Linux server** with systemd and `curl` available:
 
@@ -90,6 +43,43 @@ sudo cat /var/lib/wgsimple/setup-token
 **Fresh installations also prepare IPv4 forwarding, subnet-scoped NAT and automatic WireGuard startup.** The uplink is detected from the default IPv4 route. Supported active UFW/firewalld configurations receive local IPv4 panel/VPN port permissions and scoped VPN forwarding through their native manager. Complex or conflicting firewalls require administrator-managed setup with `--no-network`. Existing SSH rules and default policies are preserved; disabled firewalls are not enabled. Existing installations retain their networking unless you request `--configure-network`. Set the public endpoint in Settings and allow the VPN UDP port in your provider firewall (default 51820). Direct panel access also requires TCP 8787 to be allowed by your host/provider firewall. A loopback-only listener may still use HTTP. Public listeners always use HTTPS, even when an older service file still contains `--allow-http`. Accepting an unverified certificate warning encrypts traffic but does not authenticate the server against an active intermediary; verify the fingerprint or use a trusted certificate.
 
 Full steps, upgrades, offline file transfer, and troubleshooting: **[Installation guide](INSTALL.md)**.
+
+## Preview
+
+![Desktop overview showing client status, traffic, and server health](docs/screenshots/overview.png)
+
+*V2 desktop preview. All displayed clients, addresses, traffic, and server details are synthetic sample data. These screenshots are not performance benchmarks.*
+
+<details>
+<summary>Mobile preview</summary>
+<br>
+<img src="docs/screenshots/mobile.png" alt="Mobile demo with responsive status cards and live traffic chart" width="375">
+</details>
+
+## Interface
+
+V2 is the default interface, with a responsive green design and sidebar navigation for client management, live monitoring, history, and settings. The original visual design remains available at `/?design=v1`.
+
+The executable defaults to live Linux operation. Demo mode requires an explicit `--mode demo`; Windows previews use simulated data and never configure VPN networking. See [Try the Windows demo](#try-the-windows-demo).
+
+## Languages
+
+The application starts in **English** and includes **10 embedded interface languages**: English, Turkish, German, French, Spanish, Italian, Portuguese, Russian, Arabic, and Simplified Chinese. Change language in the top bar or before sign-in. Your choice is remembered in this browser, and unsaved form fields are preserved when switching.
+
+Arabic includes a right-to-left layout. Dates, numbers, and relative times follow the selected language. Common validation messages and administrative events are translated; low-level WireGuard/OS diagnostics remain in English. Client names, keys, and configurations are never translated. No external translation service is used.
+
+Repository documentation is maintained in **English**. [Translation maintenance](docs/localization.md).
+
+## What you can do
+
+| Area | Features |
+| --- | --- |
+| Manage clients | Create clients with the next available IPv4 address or choose an unused address in the VPN subnet. Generate keys, download configurations, and display locally generated QR codes. Pause, resume, delete, or set an expiry date. |
+| Observe the server | View traffic rates, recent handshakes, client counters, system health, and application memory from one dashboard. |
+| Configure WireGuard | Detect the server endpoint and host DNS defaults, or configure them manually. Expand Advanced settings when creating a client for per-client address, DNS, routing, endpoint, MTU, keepalive, listen port, FwMark and keys. Server imports reject executable hooks. |
+| Choose persistence | Enable traffic history and administrative event history separately, with retention and storage limits. Clear history without deleting client settings. |
+| Export metrics | Optionally enable Prometheus with a separate, read-only access token. |
+| Control access | First-run setup token, administrator login, Argon2id password hashing, expiring sessions, CSRF checks, and login rate limits in live mode. |
 
 ## Linux distributions
 
@@ -146,9 +136,11 @@ The Go application manages the VPN; VPN packets flow through Linux WireGuard. St
 
 ## Try the Windows demo
 
-From the project folder in PowerShell, with development dependencies installed:
+With Go and Node.js installed, run these commands from the project folder in PowerShell to build and start the demo:
 
 ```powershell
+npm.cmd ci
+.\scripts\build.ps1
 .\start-demo.ps1
 ```
 
@@ -163,16 +155,17 @@ npm.cmd ci
 .\scripts\build.ps1 -All
 ```
 
-This produces Windows and Linux binaries plus `release/wgsimple-install.run`, containing both Linux architectures. On Linux, use `npm ci` followed by `sh scripts/build.sh` to build the application.
+This produces Windows and Linux binaries plus `release/wgsimple-install.run`, containing both Linux architectures. On Linux, run `sh scripts/build.sh`; it installs frontend dependencies, checks and builds the interface, runs Go tests, and produces `bin/wgsimple` for the current architecture.
 
 ```bash
 npm run check
 npm run test:i18n
+npm run test:client-address
 go test ./... -count=1
 go vet ./...
 ```
 
-Linux CI also runs Go tests with the race detector, isolated installer scenarios, and package-integrity tests. Installer tests use mock package and service managers; they do not establish real VPN connectivity.
+Linux CI also runs Go tests with the race detector, isolated installer scenarios, and package-integrity tests. Mock installer tests cover package/service behavior and rollback. Separate platform containers exercise real dependency installation and package extraction; disposable privileged firewall containers test UFW on Ubuntu 22.04/24.04 and firewalld on Fedora 43 with actual WireGuard handshakes, VPN traffic, HTTPS panel access, access policies, and firewall reload persistence. These checks do not establish full host-reboot or cloud-provider compatibility. See [platform validation details](docs/platforms.md).
 
 ## Current scope and limits
 
