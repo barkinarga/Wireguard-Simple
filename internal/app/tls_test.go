@@ -108,6 +108,57 @@ func TestAutomaticTLSRejectsUnsafeIdentity(t *testing.T) {
 	})
 }
 
+func TestPanelTLSMigratesLegacyEd25519Identity(t *testing.T) {
+	dir := t.TempDir()
+	public, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	template := &x509.Certificate{SerialNumber: big.NewInt(1), NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour)}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, public, private)
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateDER, err := x509.MarshalPKCS8PrivateKey(private)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	data = append(data, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privateDER})...)
+	path := filepath.Join(dir, "panel-tls.pem")
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	// Explicit identities remain operator-owned, even with this algorithm.
+	if _, _, err := PanelTLS("0.0.0.0:8787", "", dir, path, path); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(path)
+	if !bytes.Equal(data, before) {
+		t.Fatal("explicit certificate unexpectedly migrated")
+	}
+	cert, key, err := PanelTLS("0.0.0.0:8787", "", dir, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pair, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leaf, err := x509.ParseCertificate(pair.Certificate[0])
+	if err != nil || leaf.PublicKeyAlgorithm != x509.ECDSA || leaf.SignatureAlgorithm != x509.ECDSAWithSHA256 {
+		t.Fatal("automatic legacy identity not migrated to browser-compatible ECDSA")
+	}
+	converted, _ := os.ReadFile(path)
+	if _, _, err := PanelTLS("0.0.0.0:8787", "", dir, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := os.ReadFile(path)
+	if !bytes.Equal(converted, after) {
+		t.Fatal("migrated identity changed again")
+	}
+}
+
 func TestServeHTTPSSetupLoginAndPlaintextRejection(t *testing.T) {
 	_, service, base := fixture(t, "live")
 	cert, key, err := PanelTLS("0.0.0.0:8787", "", t.TempDir(), "", "")
@@ -259,6 +310,9 @@ func TestAutomaticTLSHandshakeAndSecureSession(t *testing.T) {
 		if err := leaf.VerifyHostname(host); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if leaf.PublicKeyAlgorithm != x509.ECDSA || leaf.SignatureAlgorithm != x509.ECDSAWithSHA256 {
+		t.Fatal("automatic identity is not browser-compatible ECDSA P-256")
 	}
 	auth := NewAuth(cert != "")
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

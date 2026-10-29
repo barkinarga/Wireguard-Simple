@@ -1,7 +1,8 @@
 package app
 
 import (
-	"crypto/ed25519"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
@@ -77,11 +78,16 @@ func PanelTLS(listen, origin, dir, cert, key string) (string, string, error) {
 		if err != nil || time.Now().Before(leaf.NotBefore) || !time.Now().Before(leaf.NotAfter) {
 			return "", "", errors.New("Automatic TLS certificate is outside its validity period; check the clock or replace panel-tls.pem while stopped")
 		}
-		return path, path, nil
+		if leaf.PublicKeyAlgorithm != x509.Ed25519 {
+			return path, path, nil
+		}
+		// v0.4.2 generated Ed25519 identities, which Chrome does not advertise
+		// in its TLS verification preferences. Migrate only our automatic file;
+		// operator-supplied certificates above are never replaced.
 	} else if !os.IsNotExist(err) {
 		return "", "", err
 	}
-	pub, private, err := ed25519.GenerateKey(rand.Reader)
+	private, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return "", "", err
 	}
@@ -122,7 +128,7 @@ func PanelTLS(listen, origin, dir, cert, key string) (string, string, error) {
 			}
 		}
 	}
-	der, err := x509.CreateCertificate(rand.Reader, template, template, pub, private)
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &private.PublicKey, private)
 	if err != nil {
 		return "", "", err
 	}
