@@ -14,7 +14,7 @@ import (
 	"wireguard-simple/internal/web"
 )
 
-var version = "0.4.6-dev"
+var version = "0.4.7-dev"
 
 func run() error {
 	mode := flag.String("mode", "live", "demo (no network changes) or live (Linux only)")
@@ -27,6 +27,7 @@ func run() error {
 	key := flag.String("tls-key", "", "TLS private key file")
 	allowHTTP := flag.Bool("allow-http", false, "deprecated compatibility flag; non-loopback listeners always use HTTPS")
 	resetAccess := flag.String("reset-panel-access", "", "reset panel policy to public, local, or lan, then exit (stop service first)")
+	prepareFirewall := flag.Bool("prepare-firewall", false, "configure supported local firewall port permissions")
 	prepareNetwork := flag.Bool("prepare-network", false, "prepare managed IPv4 interface, forwarding and NAT, then exit (root, live mode, stop panel first)")
 	showVersion := flag.Bool("version", false, "print version")
 	flag.Parse()
@@ -93,6 +94,18 @@ func run() error {
 	}
 	if actual.Interface != *iface {
 		return fmt.Errorf("data directory belongs to interface %s", actual.Interface)
+	}
+	if *prepareFirewall {
+		if *mode != "live" {
+			return fmt.Errorf("firewall preparation requires live mode")
+		}
+		_ = os.Setenv("LC_ALL", "C")
+		message, err := app.PrepareFirewall(context.Background(), store, *listen)
+		if err != nil {
+			return err
+		}
+		fmt.Println(message)
+		return nil
 	}
 	if *prepareNetwork {
 		if *mode != "live" {

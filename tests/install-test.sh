@@ -31,11 +31,13 @@ prepare_case() {
   WGS_BINARY=$CASE_DIR/input-binary
   WGS_START=1
   WGS_NETWORK=off
+  WGS_FIREWALL_STATUS=
   WGS_NETWORK_NEW=0
   WGS_QUICK_WAS_ENABLED=0
   mkdir -p "$WGS_BIN_DIR" "$WGS_STATE_DIR" "$WGS_CONFIG_DIR" "$WGS_UNIT_DIR" "$WGS_TEMP"
   printf new-binary > "$WGS_BINARY"
   systemctl() { mock_service "$@"; }
+  wgs_configure_firewall() { WGS_FIREWALL_STATUS="Local firewall test completed."; }
   wgs_ready() { [[ -f $CASE_DIR/active && -f $WGS_BIN_DIR/wgsimple && -f $WGS_UNIT_DIR/wgsimple.service ]]; }
   if [[ $(uname -s) != Linux ]]; then
     # NTFS permission semantics differ from Linux. Test file/service behavior

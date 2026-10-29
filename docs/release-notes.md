@@ -1,11 +1,11 @@
-# WireGuard Simple v0.4.6
+# WireGuard Simple v0.4.7
 
-Detect initial connection defaults and add optional per-client configuration controls.
+Configure supported active local firewalls during installation while retaining the provider-firewall reminders.
 
-- Fill a blank endpoint from one unambiguous public IPv4 assigned to the host, excluding the managed VPN. Preserve saved values; NAT-only or ambiguous hosts remain manual. No external IP lookup.
-- New installations inherit the host's IPv4 DNS resolvers, using upstream systemd-resolved configuration instead of loopback stubs. Remove the fixed Cloudflare DNS default. If discovery fails, allow manual DNS or retaining device DNS.
-- Preserve existing DNS settings; add Use server DNS to populate the Settings field before saving.
-- Expand New client through Advanced settings for VPN address, DNS, AllowedIPs, endpoint/port, MTU, keepalive, listen port, FwMark and optional keys. Empty fields retain defaults. Apply overrides to that client only, including its download and QR code.
-- Validate addresses, duplicates, keys and numeric bounds before applying changes; keep client secrets out of snapshots. Existing client records remain compatible.
+- Detect UFW/firewalld, preserve default policies and SSH rules, and add scoped IPv4 permissions for the actual panel TCP and saved WireGuard UDP ports. Loopback panels do not receive an external TCP permission. Disabled firewalls stay disabled.
+- Add native UFW route permissions or a dedicated firewalld VPN zone/egress policy for the managed subnet and uplink. Keep NAT scoped in the application-owned nftables table.
+- Preserve existing rules on repeat setup and roll back new additions when a firewall operation fails. Refuse mixed/custom/ambiguous configurations instead of resetting or bypassing them.
+- Before the initial firewalld object reload, compare runtime/permanent configuration and refuse to discard runtime-only changes. Never run complete-reload or runtime-to-permanent.
+- Keep manual provider-firewall warnings. --no-network opts out of automatic firewall and VPN network changes; --no-start does not change firewall state.
 
-Go tests cover detection, preservation, invalid input, API authorization, per-client persistence and exported configurations. TypeScript, all ten language catalogs and the embedded UI build are checked; browser testing covers the expanded form and client creation.
+Tests cover manager detection, custom-rule refusal, native command scoping, existing permissions, rollback and installer behavior. Dedicated Linux container checks exercise real UFW/firewalld, WireGuard packets, panel HTTPS access, VPN forwarding/NAT and reload persistence before release publication.

@@ -26,6 +26,7 @@ WGS_NETWORK=auto
 WGS_NETWORK_NEW=0
 WGS_QUICK_WAS_ENABLED=0
 WGS_MAJOR=
+WGS_FIREWALL_STATUS=
 
 wgs_message() { printf '%s\n' "$*"; }
 wgs_heading() {
@@ -105,7 +106,8 @@ Options:
 Default: install missing tools, install the panel, and start it.
 Existing clients, keys, and service configuration are preserved on upgrade.
 Fresh installations prepare IPv4 VPN startup, forwarding and NAT.
-Active/custom firewalls require explicit administrator setup with --no-network.
+Supported active UFW/firewalld configurations receive scoped IPv4 permissions.
+Use --no-network to leave all firewall and VPN routing changes to the administrator.
 HELP
 }
 wgs_arguments() {
@@ -261,7 +263,7 @@ wgs_network_unit() {
   cat > "$WGS_UNIT_DIR/wgsimple-network.service" <<UNIT
 [Unit]
 Description=WireGuard Simple managed IPv4 internet access
-After=network-online.target systemd-sysctl.service
+After=network-online.target systemd-sysctl.service ufw.service firewalld.service
 Wants=network-online.target
 Before=wgsimple.service
 [Service]
@@ -274,6 +276,18 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 UNIT
   chmod 0644 "$WGS_UNIT_DIR/wgsimple-network.service"
+}
+wgs_configure_firewall() {
+  local command_line listen=127.0.0.1:8787 output
+  command_line=$(systemctl show --property=ExecStart --value wgsimple.service 2>/dev/null) || command_line=
+  if [[ -z $command_line && -r $WGS_UNIT_DIR/wgsimple.service ]]; then command_line=$(< "$WGS_UNIT_DIR/wgsimple.service"); fi
+  if [[ $command_line =~ --listen[=[:space:]]+([^[:space:]\;]+) ]]; then listen=${BASH_REMATCH[1]}; fi
+  if output=$("$WGS_BIN_DIR/wgsimple" --mode live --data-dir "$WGS_STATE_DIR" --config-dir "$WGS_CONFIG_DIR" --interface "$WGS_INTERFACE" --listen "$listen" --prepare-firewall 2>&1); then
+    WGS_FIREWALL_STATUS=$output
+  else
+    WGS_FIREWALL_STATUS='Local firewall needs manual configuration.'
+    wgs_message "Firewall: $output" >&2
+  fi
 }
 wgs_ready() {
   local attempt
@@ -370,6 +384,7 @@ wgs_install() {
       systemctl disable "wg-quick@$WGS_INTERFACE.service"
     fi
   fi
+  if ((WGS_START)) && [[ $WGS_NETWORK != off ]]; then wgs_configure_firewall; fi
   if ((WGS_START)); then WGS_START_ATTEMPTED=1; systemctl enable --now wgsimple.service; wgs_ready; fi
   WGS_ROLLBACK=0
   wgs_heading 32 '✓ WireGuard Simple ready'
@@ -384,6 +399,7 @@ wgs_install() {
   wgs_color 33 'Note: A browser certificate warning is expected.'
   wgs_message '      Verify the certificate fingerprint over SSH before accepting.'
   wgs_heading 33 'Firewall:'
+  if [[ -n $WGS_FIREWALL_STATUS ]]; then wgs_message "  $WGS_FIREWALL_STATUS"; fi
   wgs_message '  Allow TCP 8787 in your server/provider firewall for panel access.'
   wgs_message '  Allow your WireGuard UDP port in the provider firewall (default: 51820).'
   wgs_message ''
