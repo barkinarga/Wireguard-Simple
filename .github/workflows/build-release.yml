@@ -160,9 +160,19 @@ jobs:
         run: |
           node tests/build-bootstrap-fixture.mjs
           # No host networking, privileged mode, NET_ADMIN, or service startup.
-          docker run --rm --cap-drop=NET_RAW \
-            --volume "$GITHUB_WORKSPACE:/workspace:ro" \
-            "$PLATFORM_IMAGE" bash /workspace/tests/bootstrap-platform-test.sh
+          trap 'docker rm -f wgs-platform-test >/dev/null 2>&1 || true' EXIT
+          for attempt in 1 2; do
+            status=0
+            timeout --kill-after=15s 4m docker run --rm --name wgs-platform-test --cap-drop=NET_RAW \
+              --volume "$GITHUB_WORKSPACE:/workspace:ro" \
+              "$PLATFORM_IMAGE" bash /workspace/tests/bootstrap-platform-test.sh || status=$?
+            docker rm -f wgs-platform-test >/dev/null 2>&1 || true
+            if ((status == 0)); then break; fi
+            # Retry a stalled disposable container once; assertion/package
+            # failures still fail immediately and are never reported as success.
+            if ((attempt == 2 || (status != 124 && status != 137))); then exit "$status"; fi
+            echo 'Platform bootstrap timed out; retrying once in a fresh container.'
+          done
 
   firewall-integration:
     needs: build

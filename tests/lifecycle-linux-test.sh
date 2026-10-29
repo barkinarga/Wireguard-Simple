@@ -14,13 +14,14 @@ if [[ ${4:-} != --inside ]]; then
   [[ ! -e /usr/local/bin/wgsimple && ! -e /var/lib/wgsimple &&
      ! -e /etc/systemd/system/wgsimple.service && ! -e /etc/systemd/system/wgsimple-network.service &&
      ! -e /etc/systemd/system/wgsimple.service.d && ! -e /etc/systemd/system/wgsimple-network.service.d &&
-     ! -e /etc/wireguard/wg0.conf && ! -e /run/wgsimple-ci ]] || {
+     ! -e /etc/wireguard/wg0.conf && ! -e /etc/sysctl.d/90-wgsimple-internet.conf && ! -e /run/wgsimple-ci ]] || {
     echo 'Refusing to overwrite an existing installation' >&2; exit 1;
   }
   cleanup() {
     systemctl stop wgsimple.service wgsimple-network.service >/dev/null 2>&1 || true
     systemctl disable wgsimple.service wgsimple-network.service >/dev/null 2>&1 || true
     rm -f -- /usr/local/bin/wgsimple /etc/wireguard/wg0.conf /etc/systemd/system/wgsimple.service /etc/systemd/system/wgsimple-network.service
+    rm -f -- /etc/sysctl.d/90-wgsimple-internet.conf
     rm -rf -- /var/lib/wgsimple /run/wgsimple-ci /etc/systemd/system/wgsimple.service.d /etc/systemd/system/wgsimple-network.service.d
     systemctl daemon-reload
     for ns in wgs-server wgs-internet wgs-client; do
@@ -67,6 +68,7 @@ reset_install() {
   systemctl stop wgsimple.service wgsimple-network.service >/dev/null 2>&1 || true
   systemctl disable wgsimple.service wgsimple-network.service >/dev/null 2>&1 || true
   rm -f -- /usr/local/bin/wgsimple /etc/wireguard/wg0.conf /etc/systemd/system/wgsimple.service /etc/systemd/system/wgsimple-network.service
+  rm -f -- /etc/sysctl.d/90-wgsimple-internet.conf
   rm -rf -- /var/lib/wgsimple
   ip link del wg0 >/dev/null 2>&1 || true
   nft delete table ip wgsimple_internet >/dev/null 2>&1 || true
