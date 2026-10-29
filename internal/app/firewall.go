@@ -562,7 +562,7 @@ func PrepareFirewall(ctx context.Context, store *Store, listen string) (string, 
 	if err != nil {
 		return "", err
 	}
-	rules, err := command(ctx, "nft", []string{"-j", "list", "ruleset"}, "")
+	rules, err := readFirewallRules(ctx, command)
 	if err != nil {
 		return "", err
 	}

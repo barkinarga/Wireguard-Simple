@@ -46,9 +46,9 @@ func PrepareInternet(ctx context.Context, store *Store, configDir string) (resul
 			result = errors.Join(result, f.rollback(ctx))
 		}
 	}()
-	rules, err := command(ctx, "nft", []string{"-j", "list", "ruleset"}, "")
+	rules, err := readFirewallRules(ctx, command)
 	if err != nil {
-		return errors.New("Cannot inspect nftables; automatic networking stopped")
+		return fmt.Errorf("Cannot inspect nftables; automatic networking stopped: %w", err)
 	}
 	owned, err := inspectManagedInternetRules(rules, f.kind)
 	if err != nil {
@@ -136,6 +136,74 @@ func PrepareInternet(ctx context.Context, store *Store, configDir string) (resul
 	}
 	// nft applies the entire replacement atomically; failure preserves it.
 	return nil
+}
+
+// nftables 1.0.2 omits table comments from JSON even when the kernel stores
+// them. Recover only the reserved table's ownership marker from its read-only
+// native listing; never infer ownership from a table name alone.
+func readFirewallRules(ctx context.Context, run firewallRunner) ([]byte, error) {
+	raw, err := run(ctx, "nft", []string{"-j", "list", "ruleset"}, "")
+	if err != nil {
+		return nil, err
+	}
+	var doc struct {
+		Nftables []map[string]json.RawMessage `json:"nftables"`
+	}
+	if json.Unmarshal(raw, &doc) != nil {
+		return nil, errors.New("Cannot parse existing firewall rules")
+	}
+	changed := false
+	for _, object := range doc.Nftables {
+		tableRaw, ok := object["table"]
+		if !ok {
+			continue
+		}
+		var table struct{ Family, Name, Comment string }
+		if json.Unmarshal(tableRaw, &table) != nil {
+			return nil, errors.New("Invalid firewall table")
+		}
+		if table.Family != "ip" || table.Name != internetTable || table.Comment != "" {
+			continue
+		}
+		text, err := run(ctx, "nft", []string{"list", "table", "ip", internetTable}, "")
+		if err != nil {
+			return nil, errors.New("Cannot verify reserved NAT table ownership")
+		}
+		if !nativeInternetOwner(string(text)) {
+			return nil, errors.New("Reserved NAT table belongs to another configuration")
+		}
+		var fields map[string]json.RawMessage
+		if json.Unmarshal(tableRaw, &fields) != nil {
+			return nil, errors.New("Invalid firewall table")
+		}
+		fields["comment"], _ = json.Marshal(internetOwner)
+		object["table"], err = json.Marshal(fields)
+		if err != nil {
+			return nil, err
+		}
+		changed = true
+	}
+	if changed {
+		return json.Marshal(doc)
+	}
+	return raw, nil
+}
+
+func nativeInternetOwner(text string) bool {
+	lines := strings.Split(strings.TrimSpace(text), "\n")
+	if len(lines) < 2 || strings.TrimSpace(lines[0]) != "table ip "+internetTable+" {" {
+		return false
+	}
+	// nft renders the table comment before child chains. A comment inside a
+	// chain/rule, a similarly named table, or a different marker is not ownership.
+	for _, line := range lines[1:] {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		return strings.TrimSuffix(line, ";") == fmt.Sprintf("comment %q", internetOwner)
+	}
+	return false
 }
 
 func inspectInternetRules(raw []byte) (bool, error) {
