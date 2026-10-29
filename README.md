@@ -60,7 +60,7 @@ Repository documentation is maintained in **English**. [Translation maintenance]
 | --- | --- |
 | Manage clients | Create clients, allocate IPv4 addresses, generate keys, download configurations, and display locally generated QR codes. Pause, resume, delete, or set an expiry date. |
 | Observe the server | View traffic rates, recent handshakes, client counters, system health, and application memory from one dashboard. |
-| Configure WireGuard | Set endpoint, subnet, port, DNS, MTU, and client AllowedIPs. Import a server configuration with validation; executable hooks are rejected. |
+| Configure WireGuard | Detect the server endpoint and host DNS defaults, or configure them manually. Expand Advanced settings when creating a client for per-client address, DNS, routing, endpoint, MTU, keepalive, listen port, FwMark and keys. Server imports reject executable hooks. |
 | Choose persistence | Enable traffic history and administrative event history separately, with retention and storage limits. Clear history without deleting client settings. |
 | Export metrics | Optionally enable Prometheus with a separate, read-only access token. |
 | Control access | First-run setup token, administrator login, Argon2id password hashing, expiring sessions, CSRF checks, and login rate limits in live mode. |

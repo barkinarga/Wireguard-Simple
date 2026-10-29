@@ -341,5 +341,19 @@
   "Save access": "حفظ الوصول",
   "Save panel access?": "حفظ الوصول إلى اللوحة؟",
   "Access changes may disconnect you. Keep SSH access available for recovery.": "قد تقطع التغييرات اتصالك. احتفظ بوصول SSH للاستعادة.",
-  "Panel access saved": "تم حفظ الوصول إلى اللوحة"
+  "Panel access saved": "تم حفظ الوصول إلى اللوحة",
+  "Advanced settings": "إعدادات متقدمة",
+  "Leave fields empty to use the defaults. Changes apply only to this client.": "اترك الحقول فارغة لاستخدام القيم الافتراضية. تنطبق التغييرات على هذا العميل فقط.",
+  "Client VPN address": "عنوان VPN للعميل",
+  "Use server defaults": "استخدام إعدادات الخادم",
+  "Custom DNS": "DNS مخصص",
+  "Keep device DNS": "الاحتفاظ بـ DNS الجهاز",
+  "Persistent keepalive (seconds)": "إبقاء الاتصال (ثوانٍ)",
+  "Client listen port": "منفذ استماع العميل",
+  "Client private key": "المفتاح الخاص للعميل",
+  "Preshared key": "المفتاح المشترك مسبقًا",
+  "Generate automatically": "إنشاء تلقائي",
+  "0 disables keepalive. Listen port 0 is automatic. Routing settings do not enforce access restrictions.": "0 يعطل إبقاء الاتصال. المنفذ 0 تلقائي. إعدادات التوجيه لا تفرض قيود الوصول.",
+  "Use server DNS": "استخدام DNS الخادم",
+  "Server DNS could not be detected. Enter DNS addresses manually.": "تعذر اكتشاف DNS الخادم. أدخل العناوين يدويًا."
 }

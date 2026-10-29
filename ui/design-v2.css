@@ -301,3 +301,12 @@ dialog::backdrop { background: #203b3452; backdrop-filter: blur(3px); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Expanded client options stay scrollable on small screens. */
+dialog.client-advanced { width: min(800px, calc(100% - 32px)); max-width: 800px; }
+.client-advanced-settings { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line, #dce3dc); }
+.client-advanced-settings summary { cursor: pointer; font-weight: 600; color: var(--text, #263e2c); }
+.client-advanced-settings > p { margin: 14px 0 18px; color: var(--muted, #69766b); font-size: 13px; }
+.client-advanced-settings > small { display: block; margin-top: 16px; color: var(--muted, #69766b); }
+.client-advanced-settings select + input { margin-top: 8px; }
+@media (max-width: 600px) { dialog.client-advanced .form-grid { grid-template-columns: 1fr; } }

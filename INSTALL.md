@@ -60,7 +60,11 @@ Only a **loopback-bound** service may remain plaintext HTTP. A public TLS listen
 
 ## 3. Prepare VPN connectivity
 
-In **Settings → Endpoint**, enter your server's public IP address or domain. Use **Add client** to create a device and obtain its configuration or QR code.
+An empty **Settings → Endpoint** is filled automatically when exactly one public IPv4 address is assigned to the server outside the managed VPN interface. Saved endpoints are preserved. NAT-only hosts, multiple public IPv4 addresses or detection failures require a manual public IP/domain; no external IP lookup service is contacted.
+
+New installations take client DNS defaults from the server's IPv4 resolvers. Local stubs such as `127.0.0.53` are skipped; the application checks systemd-resolved's upstream configuration when needed. It never substitutes a fixed DNS provider. If no usable IPv4 resolver can be detected, enter one manually or leave DNS empty to keep device DNS. Detection cannot guarantee that a provider's private DNS is reachable by every client. Existing saved DNS settings are preserved; **Use server DNS** fills the Settings DNS field from the current host configuration, then **Apply server settings** saves it.
+
+Use **Add client** to create a device and obtain its configuration or QR code. The optional **Advanced settings** section expands the dialog: choose an available VPN `/32`, DNS mode/custom DNS, AllowedIPs, endpoint/UDP port, MTU, keepalive, client listen port, FwMark, private key and preshared key. Empty fields inherit defaults or generate keys. Keepalive `0` disables it; listen port `0` selects automatically. Existing clients continue to inherit the server values unless they have explicit overrides. DNS can also be omitted to keep the device's own DNS. Exported routing settings configure the client, not server-side access restrictions. Server-owned interface settings and the server public key stay managed by the panel.
 
 **Fresh installations prepare the IPv4 VPN interface, forwarding and NAT automatically.** A dedicated `wgsimple-network.service` runs before the panel and restores networking on boot. NAT is limited to traffic arriving on the saved WireGuard interface from its saved subnet and leaving the detected default IPv4 uplink. Rules are replaced atomically in an application-owned nftables table; other tables are not flushed. DNS settings and the system default route are preserved.
 

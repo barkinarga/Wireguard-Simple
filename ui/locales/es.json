@@ -341,5 +341,19 @@
   "Save access": "Guardar acceso",
   "Save panel access?": "¿Guardar acceso al panel?",
   "Access changes may disconnect you. Keep SSH access available for recovery.": "Los cambios pueden desconectarle. Mantenga acceso SSH para la recuperación.",
-  "Panel access saved": "Acceso al panel guardado"
+  "Panel access saved": "Acceso al panel guardado",
+  "Advanced settings": "Ajustes avanzados",
+  "Leave fields empty to use the defaults. Changes apply only to this client.": "Deja los campos vacíos para usar los valores predeterminados. Los cambios solo se aplican a este cliente.",
+  "Client VPN address": "Dirección VPN del cliente",
+  "Use server defaults": "Usar valores del servidor",
+  "Custom DNS": "DNS personalizado",
+  "Keep device DNS": "Mantener DNS del dispositivo",
+  "Persistent keepalive (seconds)": "Keepalive (segundos)",
+  "Client listen port": "Puerto de escucha del cliente",
+  "Client private key": "Clave privada del cliente",
+  "Preshared key": "Clave precompartida",
+  "Generate automatically": "Generar automáticamente",
+  "0 disables keepalive. Listen port 0 is automatic. Routing settings do not enforce access restrictions.": "0 desactiva keepalive. El puerto 0 es automático. El enrutamiento no impone restricciones de acceso.",
+  "Use server DNS": "Usar DNS del servidor",
+  "Server DNS could not be detected. Enter DNS addresses manually.": "No se pudo detectar el DNS del servidor. Introduce las direcciones manualmente."
 }

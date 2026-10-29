@@ -47,6 +47,11 @@ func NewService(store *Store, engine Engine, mode, version string) (*Service, er
 			return nil, err
 		}
 	}
+	if mode == "live" {
+		if err := store.initializeEndpoint(detectEndpoint); err != nil {
+			return nil, err
+		}
+	}
 	if cfg, err := store.Settings(); err == nil && cfg.AuditEnabled {
 		s.events, _ = store.Audits(200)
 	}
@@ -271,6 +276,10 @@ func (s *Service) applyControl(ctx context.Context, old Server, oldPeers []Peer,
 }
 
 func (s *Service) CreatePeer(ctx context.Context, name string, expires *time.Time) (PeerView, error) {
+	return s.CreatePeerWithOptions(ctx, name, expires, nil)
+}
+
+func (s *Service) CreatePeerWithOptions(ctx context.Context, name string, expires *time.Time, options *CreatePeerOptions) (PeerView, error) {
 	s.changeMu.Lock()
 	defer s.changeMu.Unlock()
 	if !validName(name) {
@@ -295,7 +304,10 @@ func (s *Service) CreatePeer(ctx context.Context, name string, expires *time.Tim
 			return PeerView{}, errors.New("A client with this name already exists")
 		}
 	}
-	address, err := allocateIP(server, peers)
+	if options == nil {
+		options = &CreatePeerOptions{}
+	}
+	address, err := options.validate(server, peers)
 	if err != nil {
 		return PeerView{}, err
 	}
@@ -303,12 +315,32 @@ func (s *Service) CreatePeer(ctx context.Context, name string, expires *time.Tim
 	if err != nil {
 		return PeerView{}, err
 	}
+	if options.PrivateKey != "" {
+		priv = options.PrivateKey
+		pub, err = publicFromPrivate(priv)
+		if err != nil {
+			return PeerView{}, err
+		}
+		if pub == server.PublicKey {
+			return PeerView{}, errors.New("Client key must differ from the server and other clients")
+		}
+		for _, other := range peers {
+			if other.PublicKey == pub {
+				return PeerView{}, errors.New("Client key must differ from the server and other clients")
+			}
+		}
+	}
 	psk := make([]byte, 32)
 	if _, err = rand.Read(psk); err != nil {
 		return PeerView{}, err
 	}
 	pskText := base64.StdEncoding.EncodeToString(psk)
+	if options.PresharedKey != "" {
+		pskText = options.PresharedKey
+	}
 	p := Peer{ID: token(12), Name: name, Address: address, PrivateKey: priv, PublicKey: pub, PresharedKey: pskText, Enabled: true, CreatedAt: time.Now().UTC(), ExpiresAt: expires}
+	config := options.ClientConfigOptions
+	p.ClientConfig = &config
 	next := append(append([]Peer{}, peers...), p)
 	if err = s.applyControl(ctx, server, peers, server, next); err != nil {
 		return PeerView{}, err

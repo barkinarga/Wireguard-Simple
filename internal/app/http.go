@@ -88,6 +88,7 @@ func (s *HTTPServer) Handler() http.Handler {
 	mux.HandleFunc("POST /api/logout", s.authorized(s.logout))
 	mux.HandleFunc("GET /api/snapshot", s.authorized(s.snapshot))
 	mux.HandleFunc("POST /api/peers", s.authorized(s.createPeer))
+	mux.HandleFunc("GET /api/network-defaults", s.authorized(s.networkDefaults))
 	mux.HandleFunc("PATCH /api/peers/{id}", s.authorized(s.changePeer))
 	mux.HandleFunc("DELETE /api/peers/{id}", s.authorized(s.deletePeer))
 	mux.HandleFunc("GET /api/peers/{id}/config", s.authorized(s.peerConfig))
@@ -251,15 +252,24 @@ func (s *HTTPServer) logout(w http.ResponseWriter, r *http.Request) {
 func (s *HTTPServer) snapshot(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, 200, s.service.Snapshot())
 }
+func (s *HTTPServer) networkDefaults(w http.ResponseWriter, r *http.Request) {
+	server, err := s.store.Server()
+	if err != nil {
+		apiError(w, 500, "Could not read server settings")
+		return
+	}
+	jsonResponse(w, 200, map[string]string{"dns": systemDNS(), "endpoint": detectEndpoint(server.Interface)})
+}
 func (s *HTTPServer) createPeer(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Name      string     `json:"name"`
-		ExpiresAt *time.Time `json:"expiresAt"`
+		Name      string             `json:"name"`
+		ExpiresAt *time.Time         `json:"expiresAt"`
+		Options   *CreatePeerOptions `json:"options"`
 	}
 	if !decode(w, r, &input) {
 		return
 	}
-	p, err := s.service.CreatePeer(r.Context(), strings.TrimSpace(input.Name), input.ExpiresAt)
+	p, err := s.service.CreatePeerWithOptions(r.Context(), strings.TrimSpace(input.Name), input.ExpiresAt, input.Options)
 	if err != nil {
 		apiError(w, 400, err.Error())
 		return

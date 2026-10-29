@@ -341,5 +341,19 @@
   "Save access": "Сохранить доступ",
   "Save panel access?": "Сохранить доступ к панели?",
   "Access changes may disconnect you. Keep SSH access available for recovery.": "Изменения могут отключить вас. Сохраните SSH-доступ для восстановления.",
-  "Panel access saved": "Доступ к панели сохранён"
+  "Panel access saved": "Доступ к панели сохранён",
+  "Advanced settings": "Расширенные настройки",
+  "Leave fields empty to use the defaults. Changes apply only to this client.": "Оставьте поля пустыми для значений по умолчанию. Изменения применяются только к этому клиенту.",
+  "Client VPN address": "VPN-адрес клиента",
+  "Use server defaults": "Использовать настройки сервера",
+  "Custom DNS": "Свой DNS",
+  "Keep device DNS": "Сохранить DNS устройства",
+  "Persistent keepalive (seconds)": "Keepalive (секунды)",
+  "Client listen port": "Порт клиента",
+  "Client private key": "Закрытый ключ клиента",
+  "Preshared key": "Общий секретный ключ",
+  "Generate automatically": "Создать автоматически",
+  "0 disables keepalive. Listen port 0 is automatic. Routing settings do not enforce access restrictions.": "0 отключает keepalive. Порт 0 выбирается автоматически. Маршрутизация не ограничивает доступ.",
+  "Use server DNS": "Использовать DNS сервера",
+  "Server DNS could not be detected. Enter DNS addresses manually.": "Не удалось определить DNS сервера. Введите адреса вручную."
 }

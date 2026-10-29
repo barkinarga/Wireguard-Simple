@@ -341,5 +341,19 @@
   "Save access": "保存访问设置",
   "Save panel access?": "保存面板访问设置？",
   "Access changes may disconnect you. Keep SSH access available for recovery.": "更改可能断开您的连接。请保留 SSH 访问以便恢复。",
-  "Panel access saved": "面板访问设置已保存"
+  "Panel access saved": "面板访问设置已保存",
+  "Advanced settings": "高级设置",
+  "Leave fields empty to use the defaults. Changes apply only to this client.": "留空以使用默认值。更改仅适用于此客户端。",
+  "Client VPN address": "客户端 VPN 地址",
+  "Use server defaults": "使用服务器默认值",
+  "Custom DNS": "自定义 DNS",
+  "Keep device DNS": "保留设备 DNS",
+  "Persistent keepalive (seconds)": "持续保活（秒）",
+  "Client listen port": "客户端监听端口",
+  "Client private key": "客户端私钥",
+  "Preshared key": "预共享密钥",
+  "Generate automatically": "自动生成",
+  "0 disables keepalive. Listen port 0 is automatic. Routing settings do not enforce access restrictions.": "0 禁用保活。监听端口 0 表示自动选择。路由设置不强制实施访问限制。",
+  "Use server DNS": "使用服务器 DNS",
+  "Server DNS could not be detected. Enter DNS addresses manually.": "无法检测服务器 DNS。请手动输入 DNS 地址。"
 }

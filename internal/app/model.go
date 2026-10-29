@@ -51,7 +51,7 @@ type Server struct {
 
 func DefaultServer(iface string) Server {
 	priv, pub, _ := newKeyPair()
-	return Server{Name: "Main server", Interface: iface, Address: "10.64.0.1/24", Port: 51820, DNS: "1.1.1.1, 1.0.0.1", AllowedIPs: "0.0.0.0/0", MTU: 1420, PrivateKey: priv, PublicKey: pub}
+	return Server{Name: "Main server", Interface: iface, Address: "10.64.0.1/24", Port: 51820, DNS: systemDNS(), AllowedIPs: "0.0.0.0/0", MTU: 1420, PrivateKey: priv, PublicKey: pub}
 }
 
 var interfacePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,14}$`)
@@ -98,6 +98,9 @@ func (s Server) Validate() error {
 		}
 	}
 	for _, d := range strings.Split(s.DNS, ",") {
+		if s.DNS == "" {
+			break
+		}
 		if _, err := netip.ParseAddr(strings.TrimSpace(d)); err != nil {
 			return errors.New("DNS addresses must be IP addresses")
 		}
@@ -115,15 +118,16 @@ func (s Server) Validate() error {
 }
 
 type Peer struct {
-	ID           string     `json:"id"`
-	Name         string     `json:"name"`
-	Address      string     `json:"address"`
-	PublicKey    string     `json:"publicKey"`
-	PrivateKey   string     `json:"privateKey,omitempty"`
-	PresharedKey string     `json:"presharedKey,omitempty"`
-	Enabled      bool       `json:"enabled"`
-	CreatedAt    time.Time  `json:"createdAt"`
-	ExpiresAt    *time.Time `json:"expiresAt"`
+	ID           string               `json:"id"`
+	Name         string               `json:"name"`
+	Address      string               `json:"address"`
+	PublicKey    string               `json:"publicKey"`
+	PrivateKey   string               `json:"privateKey,omitempty"`
+	PresharedKey string               `json:"presharedKey,omitempty"`
+	Enabled      bool                 `json:"enabled"`
+	CreatedAt    time.Time            `json:"createdAt"`
+	ExpiresAt    *time.Time           `json:"expiresAt"`
+	ClientConfig *ClientConfigOptions `json:"clientConfig,omitempty"`
 }
 
 type PeerView struct {
@@ -249,6 +253,9 @@ func splitCIDRs(s string) []string {
 }
 func publicServer(s Server) Server { s.PrivateKey = ""; return s }
 func clientConfig(s Server, p Peer) (string, error) {
+	if p.ClientConfig != nil {
+		s = p.ClientConfig.server(s)
+	}
 	if p.PrivateKey == "" {
 		return "", errors.New("The imported client's private key is not available on the server")
 	}
@@ -259,5 +266,21 @@ func clientConfig(s Server, p Peer) (string, error) {
 	if p.PresharedKey != "" {
 		psk = "PresharedKey = " + p.PresharedKey + "\n"
 	}
-	return fmt.Sprintf("[Interface]\nPrivateKey = %s\nAddress = %s\nDNS = %s\nMTU = %d\n\n[Peer]\nPublicKey = %s\n%sAllowedIPs = %s\nEndpoint = %s\nPersistentKeepalive = 25\n", p.PrivateKey, p.Address, s.DNS, s.MTU, s.PublicKey, psk, s.AllowedIPs, net.JoinHostPort(s.Endpoint, fmt.Sprint(s.Port))), nil
+	dns, listen := "", ""
+	if s.DNS != "" {
+		dns = "DNS = " + s.DNS + "\n"
+	}
+	keepalive := 25
+	if p.ClientConfig != nil {
+		if p.ClientConfig.PersistentKeepalive != nil {
+			keepalive = *p.ClientConfig.PersistentKeepalive
+		}
+		if p.ClientConfig.ListenPort != nil && *p.ClientConfig.ListenPort != 0 {
+			listen = fmt.Sprintf("ListenPort = %d\n", *p.ClientConfig.ListenPort)
+		}
+		if p.ClientConfig.FwMark != nil {
+			listen += fmt.Sprintf("FwMark = %d\n", *p.ClientConfig.FwMark)
+		}
+	}
+	return fmt.Sprintf("[Interface]\nPrivateKey = %s\nAddress = %s\n%s%sMTU = %d\n\n[Peer]\nPublicKey = %s\n%sAllowedIPs = %s\nEndpoint = %s\nPersistentKeepalive = %d\n", p.PrivateKey, p.Address, dns, listen, s.MTU, s.PublicKey, psk, s.AllowedIPs, net.JoinHostPort(s.Endpoint, fmt.Sprint(s.Port)), keepalive), nil
 }

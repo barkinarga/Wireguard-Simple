@@ -341,5 +341,19 @@
   "Save access": "Erişimi kaydet",
   "Save panel access?": "Panel erişimi kaydedilsin mi?",
   "Access changes may disconnect you. Keep SSH access available for recovery.": "Erişim değişiklikleri bağlantınızı kesebilir. Kurtarma için SSH erişimini hazır tutun.",
-  "Panel access saved": "Panel erişimi kaydedildi"
+  "Panel access saved": "Panel erişimi kaydedildi",
+  "Advanced settings": "Gelişmiş ayarlar",
+  "Leave fields empty to use the defaults. Changes apply only to this client.": "Varsayılanları kullanmak için alanları boş bırakın. Değişiklikler yalnızca bu istemciye uygulanır.",
+  "Client VPN address": "İstemci VPN adresi",
+  "Use server defaults": "Sunucu varsayılanlarını kullan",
+  "Custom DNS": "Özel DNS",
+  "Keep device DNS": "Cihazın DNS ayarını koru",
+  "Persistent keepalive (seconds)": "Bağlantıyı canlı tutma (saniye)",
+  "Client listen port": "İstemci dinleme portu",
+  "Client private key": "İstemci özel anahtarı",
+  "Preshared key": "Ön paylaşımlı anahtar",
+  "Generate automatically": "Otomatik oluştur",
+  "0 disables keepalive. Listen port 0 is automatic. Routing settings do not enforce access restrictions.": "0 canlı tutmayı kapatır. Dinleme portu 0 ise otomatik seçilir. Yönlendirme ayarları erişim kısıtlaması uygulamaz.",
+  "Use server DNS": "Sunucunun DNS adreslerini kullan",
+  "Server DNS could not be detected. Enter DNS addresses manually.": "Sunucunun DNS adresleri tespit edilemedi. DNS adreslerini elle girin."
 }
