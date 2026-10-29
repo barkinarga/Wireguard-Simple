@@ -46,7 +46,16 @@ else
   ! firewall-cmd --permanent --get-zones | tr ' ' '\n' | grep -qx wgsimple-vpn
   firewall-cmd --remove-port=12345/tcp
 fi
-prepare() { "$binary" --data-dir /test/state --config-dir /test/wireguard "$@"; }
+prepare() {
+  if "$binary" --data-dir /test/state --config-dir /test/wireguard "$@"; then return 0; fi
+  if [[ $manager == firewalld ]]; then
+    firewall-cmd --list-all-zones
+    firewall-cmd --permanent --list-all-zones
+    firewall-cmd --list-all-policies
+    firewall-cmd --permanent --list-all-policies
+  fi
+  return 1
+}
 prepare --prepare-network
 prepare --listen 0.0.0.0:8787 --prepare-firewall
 prepare --prepare-network # repeat without duplicate permissions

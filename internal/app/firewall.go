@@ -103,9 +103,13 @@ func (f *firewall) ufwAdd(ctx context.Context, args ...string) error {
 }
 
 func (f *firewall) fwAdd(ctx context.Context, scope []string, query, add, remove string) error {
-	// Treat a failed query as absent only after a successful list/read preflight.
-	if _, err := f.call(ctx, append(append([]string{}, scope...), query)...); err == nil {
+	_, err := f.call(ctx, append(append([]string{}, scope...), query)...)
+	if err == nil {
 		return nil
+	}
+	var status interface{ ExitCode() int }
+	if !errors.As(err, &status) || status.ExitCode() != 1 {
+		return errors.New("Cannot query firewalld permission safely; no rule added")
 	}
 	args := append(append([]string{}, scope...), add)
 	if _, err := f.call(ctx, args...); err != nil {
@@ -116,7 +120,17 @@ func (f *firewall) fwAdd(ctx context.Context, scope []string, query, add, remove
 }
 
 func normalizeFirewall(raw string) string {
-	return strings.TrimSpace(strings.ReplaceAll(raw, " (active)", ""))
+	lines := strings.Split(raw, "\n")
+	for i, line := range lines {
+		// Newer versions also annotate headers with (default, active).
+		// These runtime markers are not persistent rule configuration.
+		if line == strings.TrimSpace(line) && strings.HasSuffix(line, ")") {
+			if before, _, ok := strings.Cut(line, " ("); ok {
+				lines[i] = before
+			}
+		}
+	}
+	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
 
 // New permanent zone/policy objects require reload. Refuse to discard runtime-only state.
@@ -163,36 +177,55 @@ func (f *firewall) zoneFor(ctx context.Context, iface string, permanent bool) (s
 	if permanent {
 		prefix = []string{"--permanent"}
 	}
-	zones, err := f.call(ctx, append(append([]string{}, prefix...), "--get-zones")...)
+	zones, err := f.call(ctx, append(append([]string{}, prefix...), "--list-all-zones")...)
 	if err != nil {
 		return "", err
 	}
-	selected := ""
-	for _, zone := range strings.Fields(zones) {
-		if !firewallName(zone) {
-			return "", errors.New("Invalid firewalld zone name")
-		}
-		scope := append(append([]string{}, prefix...), "--zone="+zone)
-		interfaces, err := f.call(ctx, append(append([]string{}, scope...), "--list-interfaces")...)
-		if err != nil {
-			return "", err
-		}
-		sources, err := f.call(ctx, append(scope, "--list-sources")...)
-		if err != nil || sources != "" {
-			return "", errors.New("Source-based firewalld zones require manual VPN firewall setup")
-		}
-		if slices.Contains(strings.Fields(interfaces), iface) {
-			if selected != "" {
-				return "", errors.New("Ambiguous firewalld interface zone")
-			}
-			selected = zone
-		}
+	selected, err := firewalldInterfaceZone(zones, iface)
+	if err != nil {
+		return "", err
 	}
 	if selected == "" {
 		selected, err = f.call(ctx, "--get-default-zone")
 	}
 	if err != nil || !firewallName(selected) {
 		return "", errors.New("Cannot determine firewalld interface zone")
+	}
+	return selected, nil
+}
+
+func firewalldInterfaceZone(raw, iface string) (string, error) {
+	blocks := map[string]string{}
+	zone := ""
+	for _, line := range strings.Split(normalizeFirewall(raw), "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		if line == strings.TrimLeft(line, " \t") {
+			zone = strings.TrimSpace(line)
+			if !firewallName(zone) {
+				return "", errors.New("Invalid firewalld zone output")
+			}
+		}
+		if zone == "" {
+			return "", errors.New("Incomplete firewalld zone output")
+		}
+		blocks[zone] += line + "\n"
+	}
+	if len(blocks) == 0 {
+		return "", errors.New("No firewalld zones could be inspected")
+	}
+	selected := ""
+	for name, block := range blocks {
+		if firewallField(block, "sources") != "" {
+			return "", errors.New("Source-based firewalld zones require manual VPN firewall setup")
+		}
+		if slices.Contains(strings.Fields(firewallField(block, "interfaces")), iface) {
+			if selected != "" {
+				return "", errors.New("Ambiguous firewalld interface zone")
+			}
+			selected = name
+		}
 	}
 	return selected, nil
 }

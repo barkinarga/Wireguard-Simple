@@ -8,6 +8,11 @@ import (
 	"testing"
 )
 
+type firewallQueryAbsent struct{}
+
+func (firewallQueryAbsent) Error() string { return "permission absent" }
+func (firewallQueryAbsent) ExitCode() int { return 1 }
+
 func TestFirewallDetection(t *testing.T) {
 	for _, tc := range []struct {
 		ufw, fw, want string
@@ -99,8 +104,8 @@ func TestFirewalldPortScopesAndRollback(t *testing.T) {
 		s := strings.Join(args, " ")
 		calls = append(calls, s)
 		switch {
-		case strings.Contains(s, "--get-zones"):
-			return []byte("public internal"), nil
+		case strings.Contains(s, "--list-all-zones"):
+			return []byte("public (default, active)\n  interfaces: eth0\n  sources:\ninternal\n  interfaces:\n  sources:"), nil
 		case strings.Contains(s, "--zone=public --list-interfaces"):
 			return []byte("eth0"), nil
 		case strings.Contains(s, "--list-interfaces"), strings.Contains(s, "--list-sources"):
@@ -108,7 +113,7 @@ func TestFirewalldPortScopesAndRollback(t *testing.T) {
 		case strings.Contains(s, "--query-port=8787/tcp"):
 			return nil, nil // existing in both scopes
 		case strings.Contains(s, "--query-port="):
-			return nil, errors.New("absent")
+			return nil, firewallQueryAbsent{}
 		case s == "--permanent --zone=public --add-port=51820/udp":
 			return nil, errors.New("simulated failure")
 		default:
@@ -157,8 +162,8 @@ func TestFirewalldUnboundInterfaceUsesGlobalDefaultZone(t *testing.T) {
 			}
 			return []byte("public"), nil
 		}
-		if strings.Contains(s, "--get-zones") {
-			return []byte("public"), nil
+		if strings.Contains(s, "--list-all-zones") {
+			return []byte("public (default)\n  interfaces:\n  sources:"), nil
 		}
 		return nil, nil
 	}}
@@ -195,5 +200,23 @@ func TestManagedFirewallInspectionRejectsMixedCustomFilters(t *testing.T) {
 		if err != nil || n != tc.port {
 			t.Fatal(tc, n, err)
 		}
+	}
+}
+
+func TestFirewalldHeaderMarkersAndAmbiguousQueries(t *testing.T) {
+	if normalizeFirewall("public (default, active)\n  ports: 22/tcp") != normalizeFirewall("public (default)\n  ports: 22/tcp") {
+		t.Fatal("display markers are not rule changes")
+	}
+	f := &firewall{run: func(_ context.Context, _ string, args []string, _ string) ([]byte, error) {
+		if !strings.Contains(strings.Join(args, " "), "--query-port=") {
+			t.Fatal("query failure caused a mutation", args)
+		}
+		return nil, errors.New("query failed")
+	}}
+	if err := f.fwAdd(context.Background(), nil, "--query-port=8787/tcp", "--add-port=8787/tcp", "--remove-port=8787/tcp"); err == nil {
+		t.Fatal("ambiguous query accepted")
+	}
+	if len(f.undo) != 0 {
+		t.Fatal("query failure scheduled deletion")
 	}
 }

@@ -47,6 +47,17 @@ func (d *DemoEngine) Apply(context.Context, Server, []Peer) error { return nil }
 
 type LiveEngine struct{ ConfigDir string }
 
+// Preserve the exit status for safe callers without exposing command output.
+type commandFailure struct {
+	name  string
+	cause error
+}
+
+func (e *commandFailure) Error() string {
+	return fmt.Sprintf("%s operation failed; check the interface and permissions", e.name)
+}
+func (e *commandFailure) Unwrap() error { return e.cause }
+
 func command(ctx context.Context, name string, args []string, input string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
@@ -57,7 +68,7 @@ func command(ctx context.Context, name string, args []string, input string) ([]b
 	// Never include stdout/stderr in errors: wg dump contains private keys.
 	b, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("%s operation failed; check the interface and permissions", name)
+		return nil, &commandFailure{name: name, cause: err}
 	}
 	if len(b) > 2*1024*1024 {
 		return nil, errors.New("WireGuard response exceeds the size limit")
