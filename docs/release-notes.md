@@ -1,10 +1,10 @@
-# WireGuard Simple v0.4.4
+# WireGuard Simple v0.4.5
 
-Make the installation summary easier to read and display the first-run setup token directly.
+Shorten the installation summary and restore panel URLs after upgrades.
 
-- Separate panel addresses, the setup token, certificate guidance, panel access and VPN networking with spaced headings.
-- Use green for success, cyan for panel/setup headings and yellow for Note headings in interactive terminals. Redirected output, dumb terminals and NO_COLOR remain plain text.
-- Display an existing setup token with a privacy reminder, without requiring cat or an editor. Completed setup does not display a token.
-- Keep HTTPS behavior, existing clients, accounts and network settings unchanged.
+- Show a compact success line, panel/local URLs, the existing setup token, a short certificate note and the TCP/UDP firewall reminders.
+- Read effective service arguments to display URLs after upgrades while preserving existing service settings. Respect custom listener ports and loopback HTTP/TLS.
+- Keep colored headings and URLs in interactive terminals, with plain redirected output and NO_COLOR support.
+- Keep HTTPS, accounts, clients, keys and VPN networking behavior unchanged.
 
-Installer checks cover token display, missing and invalid token content, plain redirected output, installation and rollback.
+Installer tests cover fresh and upgraded URL output, effective service arguments, custom ports, loopback schemes, setup tokens and rollback.

@@ -36,7 +36,7 @@ ssh -L 8787:127.0.0.1:8787 user@server
 
 On a fresh installation, open **https://127.0.0.1:8787**, including through this SSH tunnel. If that local port is already used by a demo or another program, use `ssh -L 8788:127.0.0.1:8787 user@server` and open **https://127.0.0.1:8788** instead. A preserved loopback-only HTTP service still uses an `http://` address.
 
-The installer displays the first-run token under **Setup token:**. Copy it directly into the panel; no editor or command is needed. Treat terminal output containing the token as private. If you need to retrieve it again on the server before setup is complete:
+The installer displays the first-run token on the **Setup token:** line. Copy it directly into the panel; no editor or command is needed. Treat terminal output containing the token as private. If you need to retrieve it again on the server before setup is complete:
 
 ```bash
 sudo cat /var/lib/wgsimple/setup-token

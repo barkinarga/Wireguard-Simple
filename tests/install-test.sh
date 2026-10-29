@@ -15,6 +15,7 @@ mock_service() {
     start) touch "$CASE_DIR/active" ;;
     enable) touch "$CASE_DIR/enabled"; if [[ $* == *--now* ]]; then touch "$CASE_DIR/active"; fi ;;
     disable) rm -f -- "$CASE_DIR/enabled" ;;
+    show) : ;;
     daemon-reload) : ;;
     *) printf 'Unexpected service operation: %s\n' "$operation" >&2; return 1 ;;
   esac
@@ -123,8 +124,8 @@ mkdir "$TEST_DIR/first"
   prepare_case "$TEST_DIR/first"
   ip() { printf '%s\n' '2: eth0 inet 198.51.100.10/24 brd 198.51.100.255 scope global eth0'; }
   wgs_install > "$CASE_DIR/output"
-  grep -q 'Local:  https://127.0.0.1:8787' "$CASE_DIR/output"
-  grep -q 'Server: https://198.51.100.10:8787' "$CASE_DIR/output"
+  grep -q 'Local:        https://127.0.0.1:8787' "$CASE_DIR/output"
+  grep -q 'Panel:        https://198.51.100.10:8787' "$CASE_DIR/output"
   assert_equal "$(cat "$WGS_BIN_DIR/wgsimple")" new-binary
   [[ -f $CASE_DIR/active && -f $CASE_DIR/enabled ]]
   grep -q -- '--listen 0.0.0.0:8787 --data-dir' "$WGS_UNIT_DIR/wgsimple.service"
@@ -138,7 +139,7 @@ printf '%s\n' 'PASS first installation and private service defaults'
   WGS_STATE_DIR=$TEST_DIR/first/state
   printf '%s\n' 'example_SETUP-token_123' > "$WGS_STATE_DIR/setup-token"
   wgs_setup_token > "$TEST_DIR/token-output"
-  grep -q '^  example_SETUP-token_123$' "$TEST_DIR/token-output"
+  grep -q '^Setup token:  example_SETUP-token_123$' "$TEST_DIR/token-output"
   ! grep -q $'\033' "$TEST_DIR/token-output"
   printf 'unsafe\033[31m' > "$WGS_STATE_DIR/setup-token"
   assert_equal "$(wgs_setup_token)" ''
@@ -150,16 +151,34 @@ printf '%s\n' 'PASS first installation and private service defaults'
 )
 printf '%s\n' 'PASS setup token display, absent token and plain log output'
 
+(
+  # Effective systemd arguments take precedence over the unit file on upgrades.
+  WGS_UNIT_DIR=$TEST_DIR/first/systemd
+  systemctl() { printf '%s\n' '{ path=/usr/local/bin/wgsimple ; argv[]=/usr/local/bin/wgsimple --listen=0.0.0.0:9443 ; }'; }
+  ip() { printf '%s\n' '2: eth0 inet 198.51.100.20/24 scope global eth0'; }
+  wgs_panel_links > "$TEST_DIR/links-output"
+  grep -q '^Panel:        https://198.51.100.20:9443$' "$TEST_DIR/links-output"
+  systemctl() { printf '%s\n' '--listen 127.0.0.1:8787'; }
+  assert_equal "$(wgs_panel_links)" 'Local:        http://127.0.0.1:8787'
+  systemctl() { printf '%s\n' '--listen [::1]:9443 --tls-cert /private/cert.pem'; }
+  assert_equal "$(wgs_panel_links)" 'Local:        https://[::1]:9443'
+  systemctl() { printf '%s\n' '--listen 192.0.2.5:8787'; }
+  assert_equal "$(wgs_panel_links)" 'Panel:        https://192.0.2.5:8787'
+)
+printf '%s\n' 'PASS effective service URLs, custom ports and loopback schemes'
+
 mkdir "$TEST_DIR/update"
 (
   prepare_case "$TEST_DIR/update"
   printf old-binary > "$WGS_BIN_DIR/wgsimple"
-  printf custom-service > "$WGS_UNIT_DIR/wgsimple.service"
+  printf 'ExecStart=/usr/local/bin/wgsimple --listen 0.0.0.0:8787' > "$WGS_UNIT_DIR/wgsimple.service"
+  ip() { printf '%s\n' '2: eth0 inet 198.51.100.10/24 scope global eth0'; }
   printf keep-client-keys > "$WGS_STATE_DIR/control.db"
   printf keep-vpn-config > "$WGS_CONFIG_DIR/wg0.conf"
   touch "$CASE_DIR/active" "$CASE_DIR/enabled"
-  wgs_install >/dev/null
-  assert_equal "$(cat "$WGS_UNIT_DIR/wgsimple.service")" custom-service
+  wgs_install > "$CASE_DIR/output"
+  grep -q 'Panel:        https://198.51.100.10:8787' "$CASE_DIR/output"
+  assert_equal "$(cat "$WGS_UNIT_DIR/wgsimple.service")" 'ExecStart=/usr/local/bin/wgsimple --listen 0.0.0.0:8787' 
   assert_equal "$(cat "$WGS_STATE_DIR/control.db")" keep-client-keys
   assert_equal "$(cat "$WGS_CONFIG_DIR/wg0.conf")" keep-vpn-config
   assert_equal "$(cat "$WGS_TEMP/previous-binary")" old-binary
@@ -218,7 +237,7 @@ mkdir "$TEST_DIR/network-failure"
   WGS_NETWORK=auto
   systemctl() { if [[ $1 == restart ]]; then return 1; fi; mock_service "$@"; }
   if wgs_install > "$CASE_DIR/output" 2>&1; then exit 1; fi
-  ! grep -q 'WireGuard Simple installed.' "$CASE_DIR/output"
+  ! grep -q 'WireGuard Simple ready' "$CASE_DIR/output"
   grep -q 'network preparation failed' "$CASE_DIR/output"
 )
 printf '%s\n' 'PASS failed network bootstrap never reports successful installation'

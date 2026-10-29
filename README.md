@@ -81,7 +81,7 @@ The installer selects **amd64 or arm64**, checks the embedded payload's SHA-256,
 ssh -L 8787:127.0.0.1:8787 user@server
 ```
 
-For a fresh installation, open **https://127.0.0.1:8787** on your computer, including through the SSH tunnel. A self-signed certificate warning is expected: compare its SHA-256 fingerprint with `sudo openssl x509 -in /var/lib/wgsimple/panel-tls.pem -noout -fingerprint -sha256` over SSH before accepting. Cloudflare, a domain, and an external certificate service are not required. A trusted custom certificate avoids the warning. The installer displays the first-run token under **Setup token:**; paste it into the panel to create your administrator account. Keep terminal output containing the token private. To retrieve it again on the server before setup is complete:
+For a fresh installation, open **https://127.0.0.1:8787** on your computer, including through the SSH tunnel. A self-signed certificate warning is expected: compare its SHA-256 fingerprint with `sudo openssl x509 -in /var/lib/wgsimple/panel-tls.pem -noout -fingerprint -sha256` over SSH before accepting. Cloudflare, a domain, and an external certificate service are not required. A trusted custom certificate avoids the warning. The installer displays the first-run token on the **Setup token:** line; paste it into the panel to create your administrator account. Keep terminal output containing the token private. To retrieve it again on the server before setup is complete:
 
 ```bash
 sudo cat /var/lib/wgsimple/setup-token
