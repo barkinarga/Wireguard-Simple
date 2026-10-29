@@ -15,14 +15,44 @@ permissions:
   contents: read
 
 concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: false
+  group: "build-${{ github.ref }}-${{ startsWith(github.event.head_commit.message, 'release: v') || (github.event_name == 'workflow_dispatch' && inputs.release_version != '') }}"
+  # New development pushes supersede old tests; never interrupt a release run.
+  cancel-in-progress: "${{ github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'release: v')) }}"
 
 jobs:
-  build:
+  changes:
+    name: Change scope
     runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      test: ${{ steps.scope.outputs.test }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Skip heavy tests for documentation-only changes
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        shell: bash
+        run: |
+          test=true
+          if [[ $GITHUB_EVENT_NAME != workflow_dispatch && $COMMIT_MESSAGE != 'release: v'* ]] && git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            git diff --check "$BASE_SHA" "$GITHUB_SHA"
+            if ! git diff --name-only "$BASE_SHA" "$GITHUB_SHA" | grep -qvE '(^|/)[^/]*\.md$|^docs/(assets|screenshots)/|^LICENSE$'; then test=false; fi
+          fi
+          echo "test=$test" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: changes
+    if: needs.changes.outputs.test == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     outputs:
       release_tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -42,16 +72,8 @@ jobs:
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         shell: bash
         run: |
-          tag="$REQUESTED_VERSION"
-          headline="${COMMIT_MESSAGE%%$'\n'*}"
-          if [[ -z $tag && $headline == 'release: v'* ]]; then tag="${headline#release: }"; fi
-          if [[ -n $tag && ! $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
-            printf '%s\n' 'Invalid release version' >&2; exit 1
-          fi
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          version="${tag#v}"
-          if [[ -z $version ]]; then version=0.4.15-dev; fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          node --test tests/release-version.test.mjs
+          node scripts/check-release-version.mjs
       - name: Build embedded interface
         run: |
           npm ci
@@ -63,7 +85,7 @@ jobs:
         run: |
           go test -race ./... -count=1
           go vet ./...
-      - name: Cross-compile applications
+      - name: Cross-compile Linux applications
         env:
           APP_VERSION: ${{ steps.version.outputs.version }}
         shell: bash
@@ -72,7 +94,6 @@ jobs:
           for arch in amd64 arm64; do
             CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath -ldflags="-s -w -X main.version=$APP_VERSION" -o "bin/wgsimple-linux-$arch" ./cmd/wgsimple
           done
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.version=$APP_VERSION" -o bin/wgsimple.exe ./cmd/wgsimple
       - name: Installer tests with isolated files and mock services
         run: |
           bash -n scripts/install.sh
@@ -80,6 +101,9 @@ jobs:
           bash -n scripts/panel-output.sh
           bash -n scripts/update-check.sh
           bash -n scripts/dependencies.sh
+          bash -n tests/lifecycle-linux-test.sh
+          bash -n tests/download-previous-release.sh
+          python3 -c "import ast, pathlib; ast.parse(pathlib.Path('tests/lifecycle-api.py').read_text())"
           bash tests/dependencies-test.sh
           bash tests/install-test.sh
           bash tests/platform-test.sh
@@ -89,16 +113,19 @@ jobs:
           npm run package:linux
           npm run test:package
           bash release/wgsimple-install.run --help
+          test "$(bin/wgsimple-linux-amd64 --version)" = '${{ steps.version.outputs.version }}'
           cp INSTALL.md LICENSE THIRD_PARTY_NOTICES.md release/
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: linux-installer
           path: release/
-          retention-days: 7
+          retention-days: 3
           compression-level: 0
           if-no-files-found: error
 
   package-platforms:
+    needs: changes
+    if: needs.changes.outputs.test == 'true'
     name: Packages (${{ matrix.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -138,6 +165,7 @@ jobs:
             "$PLATFORM_IMAGE" bash /workspace/tests/bootstrap-platform-test.sh
 
   firewall-integration:
+    needs: build
     name: Firewall (${{ matrix.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -158,14 +186,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
-          go-version: '1.27.3'
-          cache: true
-      - name: Build isolated firewall test binary
+          name: linux-installer
+          path: release/
+      - name: Extract the tested release binary without rebuilding
         run: |
+          (cd release && sha256sum --check SHA256SUMS)
           mkdir -p bin
-          CGO_ENABLED=0 go build -o bin/wgsimple-linux-amd64 ./cmd/wgsimple
+          line=$(awk '$0 == "__WGS_PAYLOAD__" { print NR + 1; exit }' release/wgsimple-install.run)
+          [[ $line =~ ^[0-9]+$ ]]
+          tail -n +"$line" release/wgsimple-install.run | tar -xzOf - wgsimple-amd64 > bin/wgsimple-linux-amd64
+          chmod 0755 bin/wgsimple-linux-amd64
       - name: Test real firewall managers and VPN packets in disposable containers
         env:
           FIREWALL_MANAGER: ${{ matrix.manager }}
@@ -178,10 +210,49 @@ jobs:
             --volume "$GITHUB_WORKSPACE:/workspace:ro" wgs-firewall-test \
             bash /workspace/tests/firewall-linux-test.sh "$FIREWALL_MANAGER"
 
+  installer-lifecycle:
+    name: Install and upgrade (${{ matrix.arch }})
+    needs: build
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: linux-installer
+          path: release/
+      - name: Verify candidate and download the previous stable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (cd release && sha256sum --check SHA256SUMS)
+          bash tests/download-previous-release.sh
+      - name: Test the exact package with real systemd, HTTPS, VPN and rollback
+        env:
+          EXPECTED_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends wireguard-tools iproute2 iputils-ping nftables python3 openssl kmod
+          sudo modprobe wireguard
+          sudo env GITHUB_ACTIONS="$GITHUB_ACTIONS" RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" \
+            bash tests/lifecycle-linux-test.sh release/wgsimple-install.run \
+            .tools/previous/wgsimple-install.run "$EXPECTED_VERSION"
+
   publish:
-    needs: [build, package-platforms, firewall-integration]
+    needs: [build, package-platforms, firewall-integration, installer-lifecycle]
     if: github.event_name != 'pull_request' && needs.build.outputs.release_tag != ''
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
@@ -198,6 +269,7 @@ jobs:
           RELEASE_TAG: ${{ needs.build.outputs.release_tag }}
         shell: bash
         run: |
+          (cd release && sha256sum --check SHA256SUMS)
           if gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' > .release-state 2>/dev/null; then
             if [[ $(cat .release-state) == false ]]; then
               printf '%s\n' 'This version is already published; existing assets are preserved.'
@@ -207,4 +279,8 @@ jobs:
             gh release create "$RELEASE_TAG" --draft --target "$GITHUB_SHA" --title "WireGuard Simple $RELEASE_TAG" --notes-file docs/release-notes.md
           fi
           gh release upload "$RELEASE_TAG" release/wgsimple-install.run release/SHA256SUMS release/INSTALL.md release/LICENSE release/THIRD_PARTY_NOTICES.md --clobber
-          gh release edit "$RELEASE_TAG" --draft=false --latest
+          if [[ $RELEASE_TAG == *-* ]]; then
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+          else
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease=false --latest
+          fi

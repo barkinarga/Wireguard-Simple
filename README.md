@@ -156,6 +156,8 @@ go vet ./...
 
 Linux CI also runs Go tests with the race detector, isolated installer scenarios, and package-integrity tests. Mock installer tests cover package/service behavior and rollback. Separate platform containers exercise real dependency installation and package extraction; disposable privileged firewall containers test UFW on Ubuntu 22.04/24.04 and firewalld on Fedora 43 with actual WireGuard handshakes, VPN traffic, HTTPS panel access, access policies, and firewall reload persistence. These checks do not establish full host-reboot or cloud-provider compatibility. See [platform validation details](docs/platforms.md).
 
+On standard GitHub-hosted Ubuntu AMD64 and ARM64 machines, the installer lifecycle checks use the exact candidate package with real systemd services and an isolated VPN network. They cover fresh installation, HTTPS administrator setup, client configuration/QR export, WireGuard traffic, upgrade from an older published stable release, and recovery after an injected startup failure. Account data, client keys, settings and the panel TLS identity must survive the upgrade and rollback. The same package is published only after all required checks pass. Documentation-only changes skip heavy tests; project, installer and release versions are checked for consistency. These tests do not cover a full machine reboot, SELinux enforcement or long-term resource use.
+
 ## Current scope and limits
 
 - One WireGuard interface per application/data directory; automatic address allocation is IPv4. Multi-server management and comprehensive IPv6 support are not implemented.

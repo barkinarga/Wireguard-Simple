@@ -96,9 +96,11 @@ printf '%s\n' 'PASS arguments and injection rejection'
   WGS_BINARY=$ROOT/bin/wgsimple-linux-amd64; wgs_validate_binary amd64
   if wgs_validate_binary arm64 >/dev/null 2>&1; then exit 1; fi
   WGS_BINARY=$ROOT/bin/wgsimple-linux-arm64; wgs_validate_binary arm64
-  WGS_BINARY=$ROOT/bin/wgsimple.exe; if wgs_validate_binary amd64 >/dev/null 2>&1; then exit 1; fi
+  WGS_BINARY=$TEST_DIR/not-linux
+  printf 'not a Linux ELF application' > "$WGS_BINARY"
+  if wgs_validate_binary amd64 >/dev/null 2>&1; then exit 1; fi
 )
-printf '%s\n' 'PASS architecture selection and actual ELF/Windows validation'
+printf '%s\n' 'PASS architecture selection and rejection of non-ELF files'
 
 (
   wgs_distribution debian 13 Debian

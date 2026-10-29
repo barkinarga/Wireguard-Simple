@@ -19,6 +19,8 @@ test('produced installer has a verified payload with both correct Linux binaries
   const start = bytes.indexOf(marker) + marker.length;
   assert.ok(start > marker.length);
   const header = bytes.subarray(0, start).toString('utf8');
+  const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  assert.ok(header.includes(`wgs_check_release "$temporary" '${version}'`), 'Installer version must match package.json');
   const payload = bytes.subarray(start);
   const expected = header.match(/'([0-9a-f]{64})'/)?.[1];
   assert.equal(createHash('sha256').update(payload).digest('hex'), expected);
