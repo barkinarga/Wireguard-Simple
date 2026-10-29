@@ -64,13 +64,15 @@ let chartMode = 'live';
 let history: Point[] = [];
 let poll: ReturnType<typeof setInterval> | undefined;
 let refreshBusy = false;
+let scrollIdleAt = 0;
+document.addEventListener('scroll', () => { scrollIdleAt = performance.now() + 250; }, { passive: true, capture: true });
 let failures = 0;
 let toastTimer: ReturnType<typeof setTimeout>;
 let qrBlob = '';
 
 async function api<T = unknown>(path: string, method = 'GET', body?: unknown): Promise<T> {
   const response = await fetch(path, { method, credentials: 'same-origin', headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(session?.csrf ? { 'X-CSRF-Token': session.csrf } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
-  if (!response.ok) { const error = await response.json().catch(() => ({ error: `${t("Request failed")} (${response.status})` })); if (response.status === 401 && session) { clearInterval(poll); session.authenticated = false; renderAuth(); } throw new Error(serverMessage(error.error ?? t("Request failed"))); }
+  if (!response.ok) { const error = await response.json().catch(() => ({ error: `${t("Request failed")} (${response.status})` })); if (response.status === 401 && session?.authenticated) { clearInterval(poll); session.authenticated = false; renderAuth(); } throw new Error(serverMessage(error.error ?? t("Request failed"))); }
   return await response.json() as T;
 }
 function toast(message: string, error = false): void { const el = document.querySelector<HTMLDivElement>('#toast')!; el.textContent = message; el.className = `visible ${error ? 'error' : ''}`; clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.className = ''; }, 4500); }
@@ -81,7 +83,15 @@ async function refresh(force = false): Promise<void> {
     state = await api<Snapshot>('/api/snapshot'); failures = 0;
     if (!document.querySelector('.shell')) shell();
     const active = document.activeElement;
-    if (force || !modal.open && !(active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement) && ['overview', 'peers', 'activity'].includes(view)) renderMain();
+    const editing = active instanceof Element && Boolean(active.closest('input,textarea,select,button,a,[tabindex]')?.closest('#main'));
+    const selecting = Boolean(window.getSelection()?.toString());
+    if (force || !modal.open && !editing && !selecting && performance.now() >= scrollIdleAt && ['overview', 'peers', 'activity'].includes(view)) {
+      const left = Array.from(document.querySelectorAll('.table-scroll')).map(el => el.scrollLeft);
+      const top = window.scrollY;
+      renderMain();
+      document.querySelectorAll('.table-scroll').forEach((el, i) => { el.scrollLeft = left[i] ?? 0; });
+      window.scrollTo({ top, behavior: 'instant' });
+    }
     updateChrome();
   } catch (error) { failures++; updateChrome(); if (force) throw error; } finally { refreshBusy = false; }
 }
@@ -128,7 +138,12 @@ function updateChrome(): void {
   document.querySelector('#peer-nav-count')!.textContent = String(state.peers.length);
   document.querySelector('#version')!.textContent = `v${state.version.replace('-dev', '')}`;
   document.querySelector('#profile-user')!.textContent = state.mode === 'demo' ? t('Administrator') : session.user;
-  document.querySelector('#connection')!.innerHTML = failures ? `${icon('info')}${t("Reconnecting")}` : `<i class="live-dot"></i>${t("Live connection")}`;
+  const connection = document.querySelector<HTMLElement>('#connection')!;
+  const connectionState = `${language()}:${failures > 0}`;
+  if (connection.dataset.state !== connectionState) {
+    connection.innerHTML = failures ? `${icon('info')}${t("Reconnecting")}` : `<i class="live-dot"></i>${t("Live connection")}`;
+    connection.dataset.state = connectionState;
+  }
   document.querySelector('#connection')!.classList.toggle('offline', failures > 0);
 }
 function pageHead(eyebrow: string, title: string, subtitle: string, buttons = ''): string { return `<div class="page-head"><div><div class="eyebrow">${eyebrow}</div><h1>${title}</h1><p>${subtitle}</p></div><div class="page-actions">${buttons}</div></div>`; }
@@ -167,7 +182,7 @@ function graph(points: Point[]): string {
   const make = (key: 'rx' | 'tx'): string => points.map((p, i) => `${i === 0 ? 'M' : 'L'}${(left + i / (points.length - 1) * w).toFixed(1)},${(h - p[key] / max * (h - 8)).toFixed(1)}`).join(' ');
   const rx = make('rx'), tx = make('tx');
   const labels = [0, 1, 2, 3, 4].map(i => points[Math.round((points.length - 1) * i / 4)]);
-  return `<div class="chart"><div class="chart-y">${[1, .75, .5, .25, 0].map(n => `<span>${rate(max * n)}</span>`).join('')}</div><div class="chart-drawing"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="${t("Received and sent traffic chart")}"><defs><linearGradient id="rx-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4e8b66" stop-opacity=".2"/><stop offset="100%" stop-color="#4e8b66" stop-opacity=".01"/></linearGradient></defs>${[0, .25, .5, .75, 1].map(n => `<line x1="0" y1="${n * h}" x2="${w}" y2="${n * h}" stroke="#e9ede8" stroke-dasharray="4 5"/>`).join('')}<path d="${rx} L${w},${h} L0,${h} Z" fill="url(#rx-fill)"/><path d="${tx} L${w},${h} L0,${h} Z" fill="#8b9dab" fill-opacity=".04"/><path d="${rx}" fill="none" stroke="#4c8866" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><path d="${tx}" fill="none" stroke="#94a4b4" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg><div class="chart-x">${labels.map(p => `<span>${time(p.time)}</span>`).join('')}</div></div></div>`;
+  return `<div class="chart"><div class="chart-y">${[1, .75, .5, .25, 0].map(n => `<span>${rate(max * n)}</span>`).join('')}</div><div class="chart-drawing"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="${t("Received and sent traffic chart")}"><defs><linearGradient id="rx-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4e8b66" stop-opacity=".2"/><stop offset="100%" stop-color="#4e8b66" stop-opacity=".01"/></linearGradient></defs>${[0, .25, .5, .75, 1].map(n => `<line x1="0" y1="${n * h}" x2="${w}" y2="${n * h}" stroke="#e9ede8" stroke-dasharray="4 5"/>`).join('')}<path d="${rx} L${w},${h} L0,${h} Z" fill="url(#rx-fill)"/><path d="${tx} L${w},${h} L0,${h} Z" fill="#8b9dab" fill-opacity=".04"/><path d="${rx}" fill="none" stroke="#4c8866" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><path d="${tx}" fill="none" stroke="#64788e" stroke-dasharray="6 4" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg><div class="chart-x">${labels.map(p => `<span>${time(p.time)}</span>`).join('')}</div></div></div>`;
 }
 function peerTable(peers: Peer[], compact = false): string {
   if (!peers.length) return empty('devices', query ? t("No matching clients") : t("Create your first connection"), query ? t("Try a different name or IP address.") : t("Add a client, download its configuration, and connect."), !query ? addButton() : '');
@@ -185,7 +200,7 @@ function activityPage(): string { return `${pageHead(t("OBSERVABILITY"), t("Acti
 function toggle(name: string, checked: boolean, label: string, text: string, tag = ''): string { return `<label class="toggle-row"><div class="toggle-description"><strong>${label}${tag ? `<span class="mini-label">${tag}</span>` : ''}</strong><p>${text}</p></div><span class="switch"><input type="checkbox" name="${name}" ${checked ? 'checked' : ''}/><span class="switch-track"></span></span></label>`; }
 function storagePage(): string {
   const cfg = state.settings, r = state.resources;
-  return `${pageHead(t("RESOURCE MANAGEMENT"), t("Storage & monitoring"), t("More visibility when you need it. You set the limits."))}<div class="settings-layout"><form id="storage-form" class="settings-primary"><section class="panel"><div class="panel-head"><div><h2>${t("Monitoring preferences")}</h2><p>${t("Choose what to store for network traffic and events.")}</p></div><span class="badge green">${icon('leaf')}${t("LIGHTWEIGHT DEFAULTS")}</span></div><div class="toggle-rows"><div class="always-on"><div><strong>${t("Live monitoring")}</strong><p>${t("Recent samples stay in RAM. No persistent traffic data is written.")}</p></div><span class="badge green"><i></i>${t("Always on")}</span></div>${toggle('historyEnabled', cfg.historyEnabled, t("Traffic history"), t("Record traffic totals and client counters at intervals."), t("OPTIONAL"))}${toggle('auditEnabled', cfg.auditEnabled, t("Administrative history"), t("Store client actions, login attempts, and setting changes on disk."))}${toggle('metricsEnabled', cfg.metricsEnabled, t("Prometheus metrics"), t("Enable token-protected /metrics. No separate monitoring service is installed."))}</div></section><section class="panel"><div class="panel-head"><div><h2>${t("Retention limits")}</h2><p>${t("This budget applies when persistent recording is enabled.")}</p></div>${icon('storage')}</div><div class="form-grid storage-fields"><label>${t("Retention period")}<div class="input-unit"><input name="retentionDays" type="number" min="1" max="30" required value="${cfg.retentionDays}"/><span>${t("days")}</span></div><small>${t("1–30 days; older records are removed.")}</small></label><label>${t("Total history budget")}<div class="input-unit"><input name="budgetMB" type="number" min="16" max="512" required value="${cfg.budgetMB}"/><span>MB</span></div><small>${t("Includes the history database and transaction journal.")}</small></label><label>${t("Sampling interval")}<select name="sampleSeconds">${[30, 60, 120, 300, 600, 3600].map(n => `<option value="${n}" ${cfg.sampleSeconds === n ? 'selected' : ''}>${n < 60 ? t('{count} seconds', {count: n}) : t('{count} minutes', {count: n / 60})}</option>`).join('')}</select><small>${t("Less frequent sampling means fewer disk writes.")}</small></label></div><div class="policy-note">${icon('shield')}${t("History recording pauses below 64 MB free space. Existing VPN connections continue.")}</div></section><div class="form-actions"><span>${t("Changes take effect when saved.")}</span><button class="btn primary" type="submit">${icon('check')}${t("Save preferences")}</button></div></form><aside class="settings-secondary"><section class="budget-card"><span class="eyebrow">${t("STORAGE SUMMARY")}</span><h2>${bytes(r.telemetryBytes)}<span>/ ${cfg.budgetMB} MB</span></h2><progress value="${r.telemetryBytes}" max="${cfg.budgetMB * 1024 ** 2}"></progress><div class="budget-status"><i class="tiny-dot ${state.historyPaused ? 'amber-dot' : 'green-dot'}"></i>${state.historyPaused ? t("Recording paused") : cfg.historyEnabled || cfg.auditEnabled ? t("Selected recording enabled") : t("Persistent recording off")}</div><dl><div><dt>${t("Configuration data")}</dt><dd>${bytes(r.controlBytes)}</dd></div><div><dt>${t("History + journal files")}</dt><dd>${bytes(r.telemetryBytes)}</dd></div><div><dt>${t("Free disk space")}</dt><dd>${bytes(r.diskFree)}</dd></div></dl><p>${t("Configuration is separate from history. Disabling recording keeps existing records until expiry or cleanup.")}</p></section><section class="panel cleanup-card"><h3>${t("Clear history")}</h3><p>${t("Removes traffic and persistent event records. Clients and server settings are kept.")}</p><button class="btn danger-outline full" type="button" data-action="clear-history">${icon('trash')}${t("Clear persistent history")}</button></section></aside></div>`;
+  return `${pageHead(t("RESOURCE MANAGEMENT"), t("Storage & monitoring"), t("More visibility when you need it. You set the limits."))}<div class="settings-layout"><form id="storage-form" class="settings-primary"><section class="panel"><div class="panel-head"><div><h2>${t("Monitoring preferences")}</h2><p>${t("Choose what to store for network traffic and events.")}</p></div><span class="badge green">${icon('leaf')}${t("LIGHTWEIGHT DEFAULTS")}</span></div><div class="toggle-rows"><div class="always-on"><div><strong>${t("Live monitoring")}</strong><p>${t("Recent samples stay in RAM. No persistent traffic data is written.")}</p></div><span class="badge green"><i></i>${t("Always on")}</span></div>${toggle('historyEnabled', cfg.historyEnabled, t("Traffic history"), t("Record traffic totals and client counters at intervals."), t("OPTIONAL"))}${toggle('auditEnabled', cfg.auditEnabled, t("Administrative history"), t("Store client actions, login attempts, and setting changes on disk."))}${toggle('metricsEnabled', cfg.metricsEnabled, t("Prometheus metrics"), t("Enable token-protected /metrics. No separate monitoring service is installed."))}</div></section><section class="panel"><div class="panel-head"><div><h2>${t("Retention limits")}</h2><p>${t("This budget applies when persistent recording is enabled.")}</p></div>${icon('storage')}</div><div class="form-grid storage-fields"><label>${t("Retention period")}<div class="input-unit"><input name="retentionDays" type="number" min="1" max="30" required value="${cfg.retentionDays}"/><span>${t("days")}</span></div><small>${t("1–30 days; older records are removed.")}</small></label><label>${t("Total history budget")}<div class="input-unit"><input name="budgetMB" type="number" min="16" max="512" required value="${cfg.budgetMB}"/><span>MB</span></div><small>${t("Includes the history database and transaction journal.")}</small></label><label>${t("Sampling interval")}<select name="sampleSeconds">${[30, 60, 120, 300, 600, 3600].map(n => `<option value="${n}" ${cfg.sampleSeconds === n ? 'selected' : ''}>${n < 60 ? t('{count} seconds', {count: n}) : t('{count} minutes', {count: n / 60})}</option>`).join('')}</select><small>${t("Less frequent sampling means fewer disk writes.")}</small></label></div><div class="policy-note">${icon('shield')}${t("History recording pauses below 64 MB free space. Existing VPN connections continue.")}</div></section><div class="form-actions"><span>${t("Changes take effect when saved.")}</span><button class="btn primary" type="submit">${icon('check')}${t("Save preferences")}</button></div></form><aside class="settings-secondary"><section class="budget-card"><span class="eyebrow">${t("STORAGE SUMMARY")}</span><h2>${bytes(r.telemetryBytes)}<span>/ ${cfg.budgetMB} MB</span></h2><progress value="${r.telemetryBytes}" max="${cfg.budgetMB * 1024 ** 2}"></progress><div class="budget-status"><i class="tiny-dot ${state.historyPaused ? 'amber-dot' : 'green-dot'}"></i>${state.historyPaused ? t("Recording paused") : cfg.historyEnabled || cfg.auditEnabled ? t("Selected recording enabled") : t("Persistent recording off")}</div><dl><div><dt>${t("Configuration data")}</dt><dd>${bytes(r.controlBytes)}</dd></div><div><dt>${t("History + journal files")}</dt><dd>${bytes(r.telemetryBytes)}</dd></div><div><dt>${t("Free disk space")}</dt><dd>${state.mode === 'demo' ? '—' : bytes(r.diskFree)}</dd></div></dl><p>${t("Configuration is separate from history. Disabling recording keeps existing records until expiry or cleanup.")}</p></section><section class="panel cleanup-card"><h3>${t("Clear history")}</h3><p>${t("Removes traffic and persistent event records. Clients and server settings are kept.")}</p><button class="btn danger-outline full" type="button" data-action="clear-history">${icon('trash')}${t("Clear persistent history")}</button></section></aside></div>`;
 }
 function field(label: string, name: string, value: string | number, help = '', extra = ''): string { return `<label>${label}<input name="${name}" value="${esc(value)}" ${extra}/>${help ? `<small>${help}</small>` : ''}</label>`; }
 function panelAccessForm(): string {
@@ -260,7 +275,29 @@ function bindMain(): void {
   document.querySelector<HTMLFormElement>('#server-form')?.addEventListener('submit', event => { event.preventDefault(); const form = event.currentTarget as HTMLFormElement; void submitForm(form, async () => { const f = new FormData(form); await api('/api/server', 'PUT', { ...state.server, name: String(f.get('name')), endpoint: String(f.get('endpoint')).trim(), address: String(f.get('address')).trim(), port: Number(f.get('port')), dns: String(f.get('dns')), allowedIPs: String(f.get('allowedIPs')), mtu: Number(f.get('mtu')) }); await refresh(true); toast(state.mode === 'demo' ? t("Demo server settings updated") : t("Server settings applied")); }); });
   document.querySelector<HTMLFormElement>('#password-form')?.addEventListener('submit', event => { event.preventDefault(); const form = event.currentTarget as HTMLFormElement; void submitForm(form, async () => { const f = new FormData(form); await api('/api/password', 'POST', { current: f.get('current'), password: f.get('password') }); clearInterval(poll); session.authenticated = false; renderAuth(); toast(t("Password changed. Sign in again.")); }); });
 }
-async function submitForm(form: HTMLFormElement, fn: () => Promise<void>): Promise<void> { const button = form.querySelector<HTMLButtonElement>('button[type="submit"]') ?? form.querySelector<HTMLButtonElement>('button:last-child'); if (button) button.disabled = true; await action(fn); if (button) button.disabled = false; }
+async function submitForm(form: HTMLFormElement, fn: () => Promise<void>): Promise<void> {
+  if (form.getAttribute('aria-busy') === 'true') return;
+  const button = form.querySelector<HTMLButtonElement>('button[type="submit"]') ?? form.querySelector<HTMLButtonElement>('button:last-child');
+  form.querySelector('.form-feedback')?.remove();
+  form.setAttribute('aria-busy', 'true');
+  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
+  try { await fn(); }
+  catch (err) {
+    const message = err instanceof Error ? err.message : t('Action failed');
+    if (form.isConnected) {
+      const feedback = document.createElement('p');
+      feedback.className = 'form-feedback'; feedback.setAttribute('role', 'alert');
+      feedback.textContent = message;
+      form.addEventListener('input', () => feedback.remove(), { once: true });
+      const body = form.querySelector('.client-form-body') ?? form;
+      body.append(feedback); feedback.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+    }
+    toast(message, true);
+  } finally {
+    form.removeAttribute('aria-busy');
+    if (button) { button.disabled = false; button.removeAttribute('aria-busy'); }
+  }
+}
 function openDialog(title: string, content: string, cls = ''): void {
   if (modal.open) modal.close(); modal.className = cls; modal.innerHTML = `<div class="modal-head"><div><div class="eyebrow">WIREGUARD SIMPLE</div><h2 id="modal-title">${title}</h2></div><button class="icon-btn" id="close-modal" aria-label="${t("Close dialog")}">${icon('close')}</button></div>${content}`;
   modal.querySelector('#close-modal')!.addEventListener('click', closeDialog); modal.showModal();

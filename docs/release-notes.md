@@ -1,11 +1,11 @@
-# WireGuard Simple v0.4.11
+# WireGuard Simple v0.4.12
 
-Make client creation clearer without changing VPN access or routing defaults.
+Improve readability throughout the existing panel without changing its visual identity or VPN behavior.
 
-- Prefill the first available client IPv4 /32 from the current server subnet and show the subnet next to it. The address remains editable; clearing it retains automatic allocation. Normalize plain IPv4 input to /32.
-- Show inline warnings for occupied, server-owned, reserved and out-of-subnet addresses. Refresh occupied addresses before submission and preserve the form on concurrent conflicts. The existing server-side change lock remains the final allocation authority; a preview does not reserve an address.
-- Keep the current palette and typography while increasing field/helper readability and touch targets. Keep the dialog header and actions visible, with one scrollable form body and mobile layout.
-- Remove the client dialog backdrop blur and contain form scrolling; no measured refresh-rate claim is made.
-- Explain Linux FwMark and automatic per-client preshared keys. Localize new helper/error text in all ten supported languages.
+- Centralize active text sizes as shared relative tokens: 12px helper/status text, 14px body/actions and 16/18px supporting headings at the default browser font size. Keep mobile inputs at 16px and icon targets at 44px.
+- Correct faint storage totals/capacity, client details/public keys, summary counters and passive badges. Apply consistent text, status, disabled, placeholder, focus and destructive-action colors across pages, dialogs and authentication.
+- Keep numeric counters tabular, allow long names/keys and translated controls to wrap, and keep narrow layouts within the viewport. Demo free disk space is unavailable rather than a false zero; existing off/paused/empty/loading states remain distinct.
+- Preserve table horizontal scroll and page scroll across live refreshes. Defer full content redraw while scrolling, selecting text or focusing a main-content control. Avoid rebuilding unchanged connection-status markup and remove remaining active-theme dialog backdrop blur.
+- Show persistent inline form errors, retain inputs after failed submissions, prevent duplicate submissions and expose pending state. Failed sign-in/setup attempts no longer rebuild an already unauthenticated form; authenticated-session expiration still returns to sign-in.
 
-Validation: TypeScript/build and translation/size checks; address preview regressions covering subnet changes, gaps, exhaustion, routed prefixes and stale proposals; existing backend advanced-client validation tests. Browser demo checks include custom-IP creation, two-session address conflicts, desktop and 390px mobile layout/scroll access. No production VPN state was changed for UI testing.
+Validation includes TypeScript/build, translation and script-size checks, client-address regressions, real-browser computed text-size/contrast checks across all five pages and principal dialogs/authentication, 320px mobile and 640px reflow, Turkish labels, duplicate-client error handling and saved-input checks. Full build/platform/firewall release gates remain required.
