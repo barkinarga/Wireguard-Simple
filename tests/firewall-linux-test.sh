@@ -41,7 +41,7 @@ else
   # A runtime-only rule must prevent initial zone creation and reload.
   firewall-cmd --add-port=12345/tcp
   if "$binary" --data-dir /test/state --config-dir /test/wireguard --prepare-network > /test/runtime-only.log 2>&1; then cat /test/runtime-only.log; exit 1; fi
-  grep -q 'runtime-only' /test/runtime-only.log
+  if ! grep -q 'runtime-only' /test/runtime-only.log; then cat /test/runtime-only.log; tail -n 20 /test/firewalld.log; exit 1; fi
   firewall-cmd --query-port=12345/tcp
   ! firewall-cmd --permanent --get-zones | tr ' ' '\n' | grep -qx wgsimple-vpn
   firewall-cmd --remove-port=12345/tcp
@@ -80,7 +80,7 @@ db.commit()
 PY
 prepare --prepare-network
 ip -n client link add wgtest type wireguard
-ip netns exec client wg set wgtest private-key /test/client.key peer "$(cat /test/server.pub)" allowed-ips 0.0.0.0/0 endpoint 198.18.0.2:51820 persistent-keepalive 1
+ip netns exec client wg set wgtest private-key /dev/stdin peer "$(cat /test/server.pub)" allowed-ips 0.0.0.0/0 endpoint 198.18.0.2:51820 persistent-keepalive 1 < /test/client.key
 ip -n client addr add 10.64.0.2/32 dev wgtest
 ip -n client link set wgtest up
 ip -n client route add 203.0.113.9/32 dev wgtest
