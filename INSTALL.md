@@ -141,3 +141,15 @@ To use a trusted custom certificate instead of the automatic self-signed certifi
 ## Ubuntu 26 startup compatibility
 
 Version 0.3.2 starts a new managed interface using direct `ip` and `wg` commands. This avoids a reproduced conflict between the distribution wg-quick AppArmor child-profile transitions and NoNewPrivileges. AppArmor and the service restrictions remain enabled. Existing interfaces still use `wg syncconf` for updates. The generated wg-quick-compatible configuration is retained for external startup after reboot. Fresh interfaces with client subnets outside the server VPN network require external setup and import; the panel does not silently omit their routes.
+
+## Reset for a fresh installation
+
+For the default paths and `wg0` interface, run on the Linux server:
+
+```bash
+curl -fsSL -o wgsimple-reset.sh https://raw.githubusercontent.com/barkinarga/Wireguard-Simple/readme/scripts/reset.sh && sudo bash wgsimple-reset.sh
+```
+
+Type `RESET` when asked. This stops the application/VPN, creates a private `/root/wgsimple-backup.*` directory containing app data (accounts, keys, TLS identity and history), service files and the WireGuard configuration, then removes the installed application, active app-owned `wg0`, saved data/configuration and owned NAT table. Run the normal installer afterward for a new setup token and empty installation. The old clients cannot connect to the new server identity unless you deliberately restore their old configuration.
+
+SSH settings, other VPNs, installed packages, existing UFW/firewalld permissions and the live global IPv4 forwarding setting are preserved. The helper does not guess which existing allow rules were originally added by the application. A retained managed firewalld policy with a custom VPN subnet may require manual reconciliation before a new default-subnet installation. Backups contain secrets; do not share them. Custom paths/interfaces/drop-ins, mismatched VPN keys and an unowned reserved NAT table stop the helper before removal. `--yes` skips the typed confirmation; it does not skip ownership checks or backups. Review `scripts/reset.sh` before use.
