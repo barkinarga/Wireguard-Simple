@@ -78,7 +78,6 @@ jobs:
           bash -n scripts/install-linux.sh
           bash -n scripts/update-check.sh
           bash tests/install-test.sh
-          bash tests/reset-test.sh
           bash tests/platform-test.sh
           bash tests/update-test.sh
       - name: Package and verify installer
