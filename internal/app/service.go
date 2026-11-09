@@ -390,7 +390,7 @@ func (s *Service) ChangePeer(ctx context.Context, id string, enabled *bool, remo
 				continue
 			}
 			if enabled != nil {
-				if *enabled && p.ExpiresAt != nil && p.ExpiresAt.Before(time.Now()) {
+				if *enabled && p.expiredAt(time.Now()) {
 					return errors.New("An expired client cannot be enabled")
 				}
 				p.Enabled = *enabled
@@ -461,7 +461,7 @@ func (s *Service) expire(ctx context.Context) {
 		return
 	}
 	for _, p := range peers {
-		if p.Enabled && p.ExpiresAt != nil && p.ExpiresAt.Before(time.Now()) {
+		if p.Enabled && p.expiredAt(time.Now()) {
 			off := false
 			if err = s.ChangePeer(ctx, p.ID, &off, false); err == nil {
 				s.Event("info", "peer.expire", "Client expired: "+p.Name)

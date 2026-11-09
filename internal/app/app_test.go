@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,7 +31,7 @@ func fixture(t *testing.T, mode string) (*Store, *Service, *HTTPServer) {
 		t.Fatal(err)
 	}
 	var files fs.FS = fstest.MapFS{"index.html": {Data: []byte("hello")}, "app.js": {Data: []byte("app")}}
-	h, err := NewHTTP(service, files, "", false)
+	h, err := NewHTTP(service, files, "", false, netip.Addr{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,6 +213,87 @@ func TestLoginRateLimit(t *testing.T) {
 		t.Fatal("login rate limit absent")
 	}
 }
+func TestTrustedProxySeparatesLoginAttempts(t *testing.T) {
+	_, _, server := fixture(t, "live")
+	server.trustedProxy = netip.MustParseAddr("127.0.0.1")
+	const password = "test-password-only-123"
+	handler := server.Handler()
+	if w := request(handler, "POST", "/api/setup", map[string]string{"token": server.setupToken, "username": "admin", "password": password}, nil, ""); w.Code != 201 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	login := func(remote, password, header string) int {
+		body, _ := json.Marshal(map[string]string{"username": "admin", "password": password})
+		r := httptest.NewRequest("POST", "http://127.0.0.1:8787/api/login", bytes.NewReader(body))
+		r.RemoteAddr = remote
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("X-Real-IP", header)
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		return w.Code
+	}
+	const proxy = "127.0.0.1:30001"
+	for range 5 {
+		if status := login(proxy, "wrong", "198.51.100.10"); status != 401 {
+			t.Fatal("unexpected status before hitting rate limit", status)
+		}
+	}
+	if status := login(proxy, password, "::ffff:198.51.100.10"); status != 429 {
+		t.Fatal("the mapped IP bypassed the client rate limit", status)
+	}
+	if status := login(proxy, password, "198.51.100.11"); status != 200 {
+		t.Fatal("one proxied client locked out another client", status)
+	}
+
+	const direct = "198.51.100.20:30002"
+	for i := range 5 {
+		if status := login(direct, "wrong", fmt.Sprintf("203.0.113.%d", i+1)); status != 401 {
+			t.Fatal("unexpected direct login status", status)
+		}
+	}
+	if status := login(direct, password, "203.0.113.100"); status != 429 {
+		t.Fatal("an untrusted socket peer bypassed its rate limit", status)
+	}
+}
+
+func TestAuthRateKeyFallsBackToSocketPeer(t *testing.T) {
+	for _, tc := range []struct {
+		trusted netip.Addr
+		headers []string
+	}{
+		{netip.Addr{}, []string{"198.51.100.9"}},
+		{netip.MustParseAddr("127.0.0.1"), nil},
+		{netip.MustParseAddr("127.0.0.1"), []string{"198.51.100.9", "198.51.100.10"}},
+		{netip.MustParseAddr("127.0.0.1"), []string{"198.51.100.9, 198.51.100.10"}},
+		{netip.MustParseAddr("127.0.0.1"), []string{"fe80::1%zone"}},
+	} {
+		s := &HTTPServer{trustedProxy: tc.trusted}
+		r := httptest.NewRequest("POST", "http://127.0.0.1:8787/api/login", nil)
+		r.RemoteAddr = "127.0.0.1:30001"
+		for _, header := range tc.headers {
+			r.Header.Add("X-Real-IP", header)
+		}
+		if got := s.authRateKey(r); got != "127.0.0.1" {
+			t.Errorf("expected socket IP for headers %q, got %s", tc.headers, got)
+		}
+	}
+}
+
+func TestProxyIPv6AddressesShareOneSubnetBudget(t *testing.T) {
+	s := &HTTPServer{auth: NewAuth(false), trustedProxy: netip.MustParseAddr("127.0.0.1")}
+	r := httptest.NewRequest("POST", "http://127.0.0.1:8787/api/login", nil)
+	r.RemoteAddr = "127.0.0.1:30001"
+	for i := range 1024 {
+		r.Header.Set("X-Real-IP", fmt.Sprintf("2001:db8:1::%x", i+1))
+		if allowed := s.auth.allowed(s.authRateKey(r)); allowed != (i < 5) {
+			t.Fatalf("unexpected admission for address %d", i+1)
+		}
+	}
+	r.Header.Set("X-Real-IP", "2001:db8:2::1")
+	if !s.auth.allowed(s.authRateKey(r)) {
+		t.Fatal("one IPv6 subnet locked out another")
+	}
+}
+
 func TestTelemetryBudgetRetentionAndClear(t *testing.T) {
 	store, _, _ := fixture(t, "demo")
 	cfg := DefaultSettings()

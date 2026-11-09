@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -178,7 +179,7 @@ func TestServeHTTPSSetupLoginAndPlaintextRejection(t *testing.T) {
 	transport := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport, Timeout: time.Second}
-	handler, err := NewHTTP(service, base.files, "", cert != "")
+	handler, err := NewHTTP(service, base.files, "", cert != "", netip.Addr{})
 	if err != nil {
 		t.Fatal(err)
 	}

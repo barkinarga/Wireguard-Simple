@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,18 +42,18 @@ func (a *Auth) allowed(ip string) bool {
 	defer a.mu.Unlock()
 	now := time.Now()
 	for k, v := range a.attempts {
-		if now.Sub(v.Start) > 10*time.Minute {
+		if now.Sub(v.Start) > time.Minute {
 			delete(a.attempts, k)
 		}
 	}
-	v := a.attempts[ip]
-	if now.Sub(v.Start) > time.Minute {
+	v, found := a.attempts[ip]
+	if !found {
+		if len(a.attempts) >= 1024 {
+			return false
+		}
 		v = attempt{Start: now}
 	}
 	v.Count++
-	if len(a.attempts) >= 1024 && v.Count == 1 {
-		return false
-	}
 	a.attempts[ip] = v
 	return v.Count <= 5
 }
@@ -100,12 +101,31 @@ func (a *Auth) logout(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, &http.Cookie{Name: "wgs_session", Value: "", Path: "/", HttpOnly: true, Secure: a.Secure, SameSite: http.SameSiteStrictMode, MaxAge: -1})
 }
-func remoteIP(r *http.Request) string {
+func (s *HTTPServer) authRateKey(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr
 	}
-	return host
+	peer, err := netip.ParseAddr(host)
+	if err != nil {
+		return host
+	}
+	peer = peer.Unmap()
+	source := peer
+	if s.trustedProxy.IsValid() && peer == s.trustedProxy {
+		// The configured proxy must overwrite the header with one address.
+		values := r.Header.Values("X-Real-IP")
+		if len(values) == 1 {
+			if client, err := netip.ParseAddr(strings.TrimSpace(values[0])); err == nil && client.Zone() == "" {
+				source = client.Unmap()
+			}
+		}
+	}
+	if source.Is6() {
+		// One IPv6 subnet can supply enough addresses to exhaust the table.
+		return netip.PrefixFrom(source, 64).Masked().String()
+	}
+	return source.String()
 }
 func hashPassword(password string) (string, error) {
 	if len(password) < 12 || len(password) > 256 {

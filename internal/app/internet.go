@@ -10,7 +10,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
+	"time"
 )
 
 const internetTable = "wgsimple_internet"
@@ -25,7 +27,7 @@ func PrepareInternet(ctx context.Context, store *Store, configDir string) (resul
 	if err != nil {
 		return err
 	}
-	if err = s.Validate(); err != nil {
+	if err = s.validateInterfaceConfig(); err != nil {
 		return err
 	}
 	peers, err := store.Peers()
@@ -74,6 +76,8 @@ func PrepareInternet(ctx context.Context, store *Store, configDir string) (resul
 		return errors.New("NAT preflight failed; no network changes applied")
 	}
 	engine := &LiveEngine{ConfigDir: configDir}
+	now := time.Now()
+	activePeers := unexpiredPeers(peers, now)
 	// A stopped configuration may be restored only when it matches our database.
 	path := filepath.Join(configDir, s.Interface+".conf")
 	if st, e := os.Lstat(path); e == nil {
@@ -85,15 +89,15 @@ func PrepareInternet(ctx context.Context, store *Store, configDir string) (resul
 			if e != nil {
 				return e
 			}
-			if string(b) != serverConfig(s, peers, true) {
+			if !matchesStoppedConfig(string(b), s, peers, now) {
 				return errors.New("Stopped WireGuard configuration differs from saved settings; import/reconcile it before automatic startup")
 			}
-			if e = startManagedInterface(ctx, s, peers, command); e != nil {
+			if e = startManagedInterface(ctx, s, activePeers, command); e != nil {
 				return e
 			}
 		}
 	}
-	if err = engine.Apply(ctx, s, peers); err != nil {
+	if err = engine.Apply(ctx, s, activePeers); err != nil {
 		return err
 	}
 	oldForward, err := os.ReadFile("/proc/sys/net/ipv4/ip_forward")
@@ -136,6 +140,15 @@ func PrepareInternet(ctx context.Context, store *Store, configDir string) (resul
 	}
 	// nft applies the entire replacement atomically; failure preserves it.
 	return nil
+}
+
+func matchesStoppedConfig(raw string, s Server, peers []Peer, now time.Time) bool {
+	// The previous run may have omitted expired peers before the panel
+	// recorded their expiry. Every other byte still has to match.
+	peers = slices.DeleteFunc(slices.Clone(peers), func(p Peer) bool {
+		return p.expiredAt(now) && !strings.Contains(raw, "\nPublicKey = "+p.PublicKey+"\n")
+	})
+	return raw == serverConfig(s, peers, true)
 }
 
 // nftables 1.0.2 omits table comments from JSON even when the kernel stores

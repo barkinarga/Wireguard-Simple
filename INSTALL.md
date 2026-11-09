@@ -117,6 +117,8 @@ In **Settings → Panel access**, choose **Public access**, **This server only**
 
 The policy takes effect on every new request, including sign-in, static files, metrics, and health checks. Fresh installations default to Public access, including VPN clients. This server only rejects VPN clients even when their TCP connection reaches the panel. Private networks only accepts the default private VPN addresses, subject to any allowlist. For a tunneled request, allowlist entries must match the client VPN IP (for example `10.64.0.2`), not the server public IP shown by an Internet IP-check website. It is stored in `/var/lib/wgsimple/panel-access.json` with private permissions and persists through restart/upgrade. Blocking sources returns HTTP 403; it does not close the listening socket or change firewall rules. Source IP comes from the TCP connection; forwarded headers are ignored. A local reverse proxy therefore appears as loopback: enforce source restrictions in the proxy itself.
 
+Authentication rate limits are shared by each IPv4 address or IPv6 /64 subnet. If the panel is behind a reverse proxy, set `--trusted-proxy` to the exact IP address from which the proxy connects. Configure the proxy to overwrite `X-Real-IP` with the client's address. In NGINX, use `proxy_set_header X-Real-IP $remote_addr;`. Enable this option only when untrusted callers cannot connect to the panel from the trusted address. A missing, invalid, or repeated header uses the socket IP. Panel access rules continue to use the socket IP.
+
 If you lock yourself out, run over SSH:
 
 ```bash

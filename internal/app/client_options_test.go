@@ -60,6 +60,7 @@ func TestAdvancedClientOptionsRejectInvalidInput(t *testing.T) {
 	for _, opts := range []CreatePeerOptions{
 		{Address: "10.64.0.1/32"}, {Address: "10.64.0.0/32"}, {Address: "10.64.0.255/32"}, {Address: "10.64.0.2/32"}, {Address: "192.168.1.2/32"}, {Address: "10.64.0.40/24"},
 		{ClientConfigOptions: ClientConfigOptions{DNS: ptr("9.9.9.9\nPostUp = bad")}},
+		{ClientConfigOptions: ClientConfigOptions{DNS: ptr("fe80::1%eth0\nPreUp = bad")}},
 		{ClientConfigOptions: ClientConfigOptions{Endpoint: "bad\nPostUp=bad"}},
 		{ClientConfigOptions: ClientConfigOptions{AllowedIPs: "0.0.0.0/0\nPostUp=bad"}},
 		{ClientConfigOptions: ClientConfigOptions{Port: ptr(0)}},
@@ -86,6 +87,48 @@ func TestAdvancedClientOptionsRejectInvalidInput(t *testing.T) {
 		if err != nil || strings.Contains(config, "DNS =") {
 			t.Fatal(config, err)
 		}
+	}
+}
+
+func TestClientExportsRejectStoredDNSWithLineBreaks(t *testing.T) {
+	store, _, h := fixture(t, "demo")
+	handler := h.Handler()
+	cookie, csrf := demoLogin(t, handler)
+	server, err := store.Server()
+	if err != nil {
+		t.Fatal(err)
+	}
+	peers, err := store.Peers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	malicious := "fe80::1%eth0\r\nPreUp = false"
+	server.DNS = malicious
+	if w := request(handler, "PUT", "/api/server", server, cookie, csrf); w.Code != 400 {
+		t.Fatal("server DNS accepted a configuration directive", w.Code)
+	}
+	if err := server.validateInterfaceConfig(); err != nil {
+		t.Fatal("legacy client DNS should not block the managed VPN", err)
+	}
+
+	for _, useOverride := range []bool{false, true} {
+		if useOverride {
+			server.DNS = "9.9.9.9, fe80::1%eth0"
+			peers[0].ClientConfig = &ClientConfigOptions{DNS: &malicious}
+		}
+		// Simulate settings persisted by an older version.
+		if err := store.SaveControl(server, peers); err != nil {
+			t.Fatal(err)
+		}
+		for _, format := range []string{"config", "qr"} {
+			if w := request(handler, "GET", "/api/peers/"+peers[0].ID+"/"+format, nil, cookie, ""); w.Code != 400 {
+				t.Errorf("stored DNS was exported as %s (override=%t), status %d", format, useOverride, w.Code)
+			}
+		}
+	}
+	w := request(handler, "GET", "/api/peers/"+peers[1].ID+"/config", nil, cookie, "")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "DNS = "+server.DNS+"\n") {
+		t.Fatal("ordinary IPv4 and scoped IPv6 DNS should still export", w.Code)
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -147,11 +148,18 @@ func serverConfig(s Server, peers []Peer, quick bool) string {
 	}
 	return b.String()
 }
+
+func unexpiredPeers(peers []Peer, now time.Time) []Peer {
+	return slices.DeleteFunc(slices.Clone(peers), func(p Peer) bool {
+		return p.expiredAt(now)
+	})
+}
+
 func (l *LiveEngine) Apply(ctx context.Context, s Server, peers []Peer) error {
 	if runtime.GOOS != "linux" {
 		return errors.New("WireGuard changes are disabled on this computer")
 	}
-	if err := s.Validate(); err != nil {
+	if err := s.validateInterfaceConfig(); err != nil {
 		return err
 	}
 	if !ValidInterface(s.Interface) {
@@ -199,6 +207,7 @@ func (l *LiveEngine) Apply(ctx context.Context, s Server, peers []Peer) error {
 			return errors.New("Change the running interface address/MTU during maintenance")
 		}
 	}
+	peers = unexpiredPeers(peers, time.Now())
 	if err := atomicFile(path, []byte(serverConfig(s, peers, true)), 0600); err != nil {
 		return errors.New("Could not save WireGuard configuration")
 	}
@@ -231,6 +240,7 @@ func (l *LiveEngine) Apply(ctx context.Context, s Server, peers []Peer) error {
 // Invoke each tool directly: wg-quick's nested AppArmor profile transitions can
 // fail under NoNewPrivileges on Ubuntu. Keep the service's protections intact.
 func startManagedInterface(ctx context.Context, s Server, peers []Peer, run func(context.Context, string, []string, string) ([]byte, error)) error {
+	peers = unexpiredPeers(peers, time.Now())
 	prefix, err := netip.ParsePrefix(s.Address)
 	if err != nil {
 		return err
@@ -254,7 +264,7 @@ func startManagedInterface(ctx context.Context, s Server, peers []Peer, run func
 		args  []string
 		input string
 	}{
-		{"wg", []string{"setconf", s.Interface, "/dev/stdin"}, serverConfig(s, peers, false)},
+		{"wg", []string{"setconf", s.Interface, "/dev/stdin"}, serverConfig(s, unexpiredPeers(peers, time.Now()), false)},
 		{"ip", []string{"address", "add", s.Address, "dev", s.Interface}, ""},
 		{"ip", []string{"link", "set", "mtu", strconv.Itoa(s.MTU), "up", "dev", s.Interface}, ""},
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/netip"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -23,6 +24,8 @@ func run() error {
 	iface := flag.String("interface", "wg0", "managed WireGuard interface")
 	configDir := flag.String("config-dir", "/etc/wireguard", "WireGuard configuration directory (live Linux only)")
 	origin := flag.String("origin", "", "canonical panel origin, e.g. https://vpn.example.com")
+	var trustedProxy netip.Addr
+	flag.TextVar(&trustedProxy, "trusted-proxy", netip.Addr{}, "trusted reverse proxy IP for authentication rate limiting (sets X-Real-IP)")
 	cert := flag.String("tls-cert", "", "TLS certificate file")
 	key := flag.String("tls-key", "", "TLS private key file")
 	allowHTTP := flag.Bool("allow-http", false, "deprecated compatibility flag; non-loopback listeners always use HTTPS")
@@ -56,6 +59,9 @@ func run() error {
 	}
 	if err := app.ValidatePanelOrigin(*origin, loopback); err != nil {
 		return err
+	}
+	if trustedProxy.Zone() != "" || trustedProxy.Unmap().IsUnspecified() || trustedProxy.Unmap().IsMulticast() {
+		return fmt.Errorf("trusted proxy must be a single unicast IP address without an IPv6 zone")
 	}
 	if *allowHTTP && !loopback {
 		fmt.Fprintln(os.Stderr, "--allow-http is deprecated: public panel access now uses HTTPS.")
@@ -130,7 +136,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	server, err := app.NewHTTP(service, web.Files(), *origin, *cert != "" || len(*origin) >= 8 && (*origin)[:8] == "https://")
+	server, err := app.NewHTTP(service, web.Files(), *origin, *cert != "" || len(*origin) >= 8 && (*origin)[:8] == "https://", trustedProxy)
 	if err != nil {
 		return err
 	}

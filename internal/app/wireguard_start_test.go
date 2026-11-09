@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestManagedStartAndPartialFailureCleanup(t *testing.T) {
@@ -39,6 +40,60 @@ func TestManagedStartAndPartialFailureCleanup(t *testing.T) {
 			if fail > 1 && calls[len(calls)-1] != "ip link delete dev wg0" {
 				t.Fatal("missing cleanup", calls)
 			}
+		}
+	}
+}
+
+func TestManagedStartOmitsExpiredPeers(t *testing.T) {
+	s := DefaultServer("wg0")
+	past := time.Now().Add(-time.Hour)
+	future := time.Now().Add(time.Hour)
+	expiresDuringStart := future
+	peers := []Peer{
+		{Enabled: true, Address: "192.168.0.0/24", PublicKey: "expired", ExpiresAt: &past},
+		{Enabled: true, Address: "10.64.0.2/32", PublicKey: "active", ExpiresAt: &future},
+		{Enabled: false, Address: "10.64.0.3/32", PublicKey: "disabled"},
+		{Enabled: true, Address: "10.64.0.4/32", PublicKey: "expires-during-start", ExpiresAt: &expiresDuringStart},
+	}
+	var config string
+	err := startManagedInterface(context.Background(), s, peers, func(_ context.Context, name string, args []string, input string) ([]byte, error) {
+		if name == "ip" && args[0] == "link" && args[1] == "add" {
+			expiresDuringStart = past
+		}
+		if name == "wg" {
+			config = input
+		}
+		return nil, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(config, "PublicKey = active\n") || strings.Contains(config, "PublicKey = expired\n") || strings.Contains(config, "PublicKey = disabled\n") || strings.Contains(config, "PublicKey = expires-during-start\n") {
+		t.Fatal("managed start installed the wrong peer set")
+	}
+}
+
+func TestStoppedConfigMatchesAcrossExpiryWindows(t *testing.T) {
+	s := DefaultServer("wg0")
+	now := time.Now()
+	first := now.Add(-2 * time.Hour)
+	second := now.Add(-time.Hour)
+	peers := []Peer{
+		{Enabled: true, Address: "10.64.0.2/32", PublicKey: "first", ExpiresAt: &first},
+		{Enabled: true, Address: "10.64.0.3/32", PublicKey: "second", ExpiresAt: &second},
+		{Enabled: true, Address: "10.64.0.4/32", PublicKey: "active"},
+	}
+	for _, saved := range [][]Peer{peers, peers[1:], peers[2:]} {
+		if !matchesStoppedConfig(serverConfig(s, saved, true), s, peers, now) {
+			t.Errorf("canonical config with %d peers was rejected", len(saved))
+		}
+	}
+	for _, raw := range []string{
+		serverConfig(s, peers[:2], true),
+		strings.Replace(serverConfig(s, peers, true), "10.64.0.4/32", "10.64.0.5/32", 1),
+	} {
+		if matchesStoppedConfig(raw, s, peers, now) {
+			t.Error("stopped configuration with unrelated drift was accepted")
 		}
 	}
 }

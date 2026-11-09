@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -28,10 +29,11 @@ type HTTPServer struct {
 	mode, setupToken, origin string
 	files                    fs.FS
 	access                   panelPolicy
+	trustedProxy             netip.Addr
 }
 
-func NewHTTP(service *Service, files fs.FS, origin string, secure bool) (*HTTPServer, error) {
-	s := &HTTPServer{service: service, store: service.store, auth: NewAuth(secure), mode: service.mode, origin: origin, files: files}
+func NewHTTP(service *Service, files fs.FS, origin string, secure bool, trustedProxy netip.Addr) (*HTTPServer, error) {
+	s := &HTTPServer{service: service, store: service.store, auth: NewAuth(secure), mode: service.mode, origin: origin, files: files, trustedProxy: trustedProxy.Unmap()}
 	policy, err := readPanelAccess(s.store.dir)
 	if err != nil {
 		return nil, err
@@ -174,7 +176,7 @@ func (s *HTTPServer) setup(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 409, "Setup already completed")
 		return
 	}
-	if !s.auth.allowed(remoteIP(r)) {
+	if !s.auth.allowed(s.authRateKey(r)) {
 		apiError(w, 429, "Too many attempts; wait one minute")
 		return
 	}
@@ -216,7 +218,7 @@ func (s *HTTPServer) setup(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, 201, map[string]string{"csrf": user.CSRF})
 }
 func (s *HTTPServer) login(w http.ResponseWriter, r *http.Request) {
-	if !s.auth.allowed(remoteIP(r)) {
+	if !s.auth.allowed(s.authRateKey(r)) {
 		apiError(w, 429, "Too many attempts; wait one minute")
 		return
 	}
@@ -451,7 +453,7 @@ func (s *HTTPServer) password(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 409, "Password cannot be changed in demo mode")
 		return
 	}
-	if !s.auth.allowed(remoteIP(r)) {
+	if !s.auth.allowed(s.authRateKey(r)) {
 		apiError(w, 429, "Wait one minute")
 		return
 	}
