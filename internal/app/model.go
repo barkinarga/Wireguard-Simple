@@ -70,6 +70,14 @@ func validName(s string) bool {
 }
 
 func (s Server) Validate() error {
+	if err := s.validateInterfaceConfig(); err != nil {
+		return err
+	}
+	return validateDNS(s.DNS)
+}
+
+// DNS is used only in client exports, never in the managed interface config.
+func (s Server) validateInterfaceConfig() error {
 	if !validName(s.Name) || !ValidInterface(s.Interface) {
 		return errors.New("Invalid server or interface name")
 	}
@@ -97,14 +105,6 @@ func (s Server) Validate() error {
 			}
 		}
 	}
-	for _, d := range strings.Split(s.DNS, ",") {
-		if s.DNS == "" {
-			break
-		}
-		if _, err := netip.ParseAddr(strings.TrimSpace(d)); err != nil {
-			return errors.New("DNS addresses must be IP addresses")
-		}
-	}
 	if err := validateCIDRs(s.AllowedIPs); err != nil {
 		return err
 	}
@@ -113,6 +113,23 @@ func (s Server) Validate() error {
 	}
 	if pub, err := publicFromPrivate(s.PrivateKey); err != nil || pub != s.PublicKey {
 		return errors.New("Server key pair does not match")
+	}
+	return nil
+}
+
+func validateDNS(dns string) error {
+	if dns == "" {
+		return nil
+	}
+	// ParseAddr permits arbitrary characters in IPv6 zones. Exports require
+	// each setting to stay on a single line.
+	if strings.ContainsAny(dns, "\r\n\x00") {
+		return errors.New("DNS addresses must be IP addresses")
+	}
+	for _, value := range strings.Split(dns, ",") {
+		if _, err := netip.ParseAddr(strings.TrimSpace(value)); err != nil {
+			return errors.New("DNS addresses must be IP addresses")
+		}
 	}
 	return nil
 }
@@ -128,6 +145,10 @@ type Peer struct {
 	CreatedAt    time.Time            `json:"createdAt"`
 	ExpiresAt    *time.Time           `json:"expiresAt"`
 	ClientConfig *ClientConfigOptions `json:"clientConfig,omitempty"`
+}
+
+func (p Peer) expiredAt(now time.Time) bool {
+	return p.ExpiresAt != nil && !p.ExpiresAt.After(now)
 }
 
 type PeerView struct {
@@ -261,6 +282,9 @@ func clientConfig(s Server, p Peer) (string, error) {
 	}
 	if s.Endpoint == "" {
 		return "", errors.New("Set the server endpoint first")
+	}
+	if err := validateDNS(s.DNS); err != nil {
+		return "", err
 	}
 	psk := ""
 	if p.PresharedKey != "" {
